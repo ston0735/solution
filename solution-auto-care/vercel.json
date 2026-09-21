@@ -3,16 +3,14 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist/public",
-  "functions": {
-    "api/index.ts": {
-      "includeFiles": "dist/public/**",
-      "maxDuration": 60
-    }
-  },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.ts"
+      "source": "/api/:path*",
+      "destination": "https://solauto1care-rmvw9wqm.manus.space/api/:path*"
+    },
+    {
+      "source": "/manus-storage/:path*",
+      "destination": "https://solauto1care-rmvw9wqm.manus.space/manus-storage/:path*"
     }
   ]
 }
