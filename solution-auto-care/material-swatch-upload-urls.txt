@@ -1,0 +1,740 @@
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GAS285.jpg (size: 16224 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GAS285_c218b5a6.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GBM210.jpg (size: 23353 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GBM210_44106d6a.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GCB322.jpg (size: 17818 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GCB322_eb1faf03.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GCG313.jpg (size: 15187 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GCG313_e765eba9.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GEG206.jpg (size: 20950 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GEG206_b75a6fb7.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GET260.jpg (size: 16929 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GET260_7b7c8520.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GFD275.jpg (size: 17225 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GFD275_71849248.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GKG315.jpg (size: 13099 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GKG315_c0af647c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GLD325.jpg (size: 19609 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GLD325_6cb1cf51.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GLM262.jpg (size: 16979 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GLM262_95e944cc.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMA283.jpg (size: 15002 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMA283_8627fe1e.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMB305.jpg (size: 15454 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMB305_8c1ded58.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMC246.jpg (size: 16616 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMC246_86528709.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMC263.jpg (size: 24812 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMC263_cdf626af.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMC267.jpg (size: 13796 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMC267_386c8cb8.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMD240.jpg (size: 26154 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMD240_4ce67209.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMD273.jpg (size: 13605 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMD273_b430ab46.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMD281.jpg (size: 11497 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMD281_599dbfaa.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMF251.jpg (size: 18251 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMF251_befda5df.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG250.jpg (size: 18066 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMG250_b451392c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG264.jpg (size: 17071 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMG264_97e22764.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG300.jpg (size: 17449 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMG300_60c8e5e4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG302.jpg (size: 15727 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMG302_a3092b44.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMI294.jpg (size: 27302 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMI294_fb6962be.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GML286.jpg (size: 17192 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GML286_65ae653d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM230.jpg (size: 17951 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMM230_5d1c9be3.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM238.jpg (size: 14340 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMM238_18672556.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM288.jpg (size: 16790 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMM288_0e002a86.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM303.jpg (size: 16759 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMM303_8764bab0.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMN298.jpg (size: 16487 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMN298_35106bab.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMO276.jpg (size: 16520 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMO276_f78ac881.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMP232.jpg (size: 18737 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMP232_2537a73d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMP249.jpg (size: 17458 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMP249_19a5bdf6.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMP299.jpg (size: 17537 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMP299_e2a683fd.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMQ289.jpg (size: 13865 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMQ289_06b607e1.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMR245.jpg (size: 15321 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMR245_e7218d28.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMS233.jpg (size: 15922 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMS233_16fbb807.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMS282.jpg (size: 12853 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMS282_c2141502.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMS291.jpg (size: 19257 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMS291_452758c4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMT247.jpg (size: 15886 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMT247_04b16c20.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMT284.jpg (size: 15668 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMT284_aa5be4f2.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMT290.jpg (size: 19302 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMT290_aaf0fc24.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMU295.jpg (size: 19283 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMU295_04ce05ff.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GMV261.jpg (size: 16652 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GMV261_73d2cc34.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GNB208.jpg (size: 22707 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GNB208_b85f20b5.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GOB306.jpg (size: 17104 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GOB306_06a6e27b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GOG204.jpg (size: 26677 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GOG204_e8be1f02.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GOG323.jpg (size: 28904 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GOG323_73fbc6dc.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GRO318.jpg (size: 20433 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GRO318_f1bd3ab3.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSA309.jpg (size: 18429 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSA309_ed16c6f6.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSB256.jpg (size: 17935 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSB256_28fb5a2b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSB310.jpg (size: 17695 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSB310_b0f3574d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSB321.jpg (size: 15918 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSB321_0f5ece06.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSG271.jpg (size: 21738 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSG271_c5d5743f.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSG312.jpg (size: 17479 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSG312_f17df31d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSI265.jpg (size: 15175 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSI265_8caa08fa.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSK236.jpg (size: 14569 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSK236_6fbf8b53.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSL287.jpg (size: 17399 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSL287_c39b6845.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSM227.jpg (size: 16841 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSM227_a6685b9e.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSM301.jpg (size: 16687 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSM301_e5caa8a4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSR252.jpg (size: 17072 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSR252_53efe84b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSR266.jpg (size: 19560 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSR266_674a5e90.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GSS307.jpg (size: 14929 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GSS307_ad055552.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GST257.jpg (size: 16912 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GST257_61cacf0b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GST268.jpg (size: 17127 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GST268_eafc3032.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GTG197.jpg (size: 61602 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GTG197_8551534c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GTG314.jpg (size: 15898 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GTG314_22556b0e.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUB229.jpg (size: 15165 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUB229_c1fabb60.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUB231.jpg (size: 16462 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUB231_eb4dbfe1.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUB243.jpg (size: 16436 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUB243_186a8b92.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUD258.jpg (size: 17760 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUD258_cce67ff4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUL239.jpg (size: 16449 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUL239_a1e6e643.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUL241.jpg (size: 15927 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUL241_62cefa95.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUL254.jpg (size: 17507 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUL254_de66aac6.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM228.jpg (size: 15634 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUM228_1d27bc07.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM244.jpg (size: 17355 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUM244_660d5a1b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM269.jpg (size: 12663 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUM269_6fee403d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM277.jpg (size: 22220 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUM277_f0f944f3.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GUS234.jpg (size: 14409 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GUS234_b3d79315.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/GV213.jpg (size: 24462 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/GV213_4e166eff.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KA129B.jpg (size: 56097 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KA129B_01d0b9f4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KAG117P.jpg (size: 10317 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KAG117P_e50b562d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KAG122P.jpg (size: 11351 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KAG122P_56b791a4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KAM130R.jpg (size: 54467 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KAM130R_09ab8778.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBB158LR.jpg (size: 37176 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBB158LR_1dbea43b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBG137BM.jpg (size: 16306 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBG137BM_523c8b62.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBG138BM.jpg (size: 13523 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBG138BM_57384b48.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBG1500B.jpg (size: 33511 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBG1500B_18c70394.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBK133R.jpg (size: 11619 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBK133R_ebb66dff.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBP149DB.jpg (size: 18448 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBP149DB_0aa1a58b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBR156MN.jpg (size: 38230 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBR156MN_6e4cd356.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KBV134R.jpg (size: 44080 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KBV134R_6f7f41b3.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KCB142MB.jpg (size: 10598 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KCB142MB_6acf4074.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KCG143MB.jpg (size: 21151 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KCG143MB_ec288cb7.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KCG145MB.jpg (size: 36388 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KCG145MB_66375a00.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KCR100T.jpg (size: 13793 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KCR100T_a464f816.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KDC135R.jpg (size: 29559 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KDC135R_d676690d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KDE127B.jpg (size: 10249 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KDE127B_bb7e241c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KDS136BM.jpg (size: 28317 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KDS136BM_5369b1a5.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KDS140MB.jpg (size: 6195 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KDS140MB_45436d89.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KFB109P.jpg (size: 39720 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KFB109P_287a5786.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KFG101T.jpg (size: 16259 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KFG101T_ca0ea53b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KFL107N.jpg (size: 6430 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KFL107N_0c2a55fd.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KGB102T.jpg (size: 25808 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KGB102T_15002b61.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KGB128B.jpg (size: 7333 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KGB128B_7d311e8b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KGG144MB.jpg (size: 57776 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KGG144MB_e356cfdb.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KGM200MB.jpg (size: 38003 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KGM200MB_855a327a.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KGN147AD.jpg (size: 10446 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KGN147AD_db8a1add.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KGS108P.jpg (size: 41265 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KGS108P_9e32260c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KLC131R.jpg (size: 11868 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KLC131R_8597eb1f.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KLO112P.jpg (size: 8665 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KLO112P_be73801c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB119P.jpg (size: 5288 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMB119P_e3c21264.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB151DB.jpg (size: 14746 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMB151DB_8d2590a2.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB1520B.jpg (size: 46337 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMB1520B_f7d767cb.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB222LB.jpg (size: 13833 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMB222LB_0ca5531b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KME141MB.jpg (size: 38469 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KME141MB_e8d9b9df.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMG114P.jpg (size: 10795 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMG114P_4578f728.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMG118P.jpg (size: 56362 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMG118P_deb4d120.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMG139MB.jpg (size: 54306 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMG139MB_8c9d54ab.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMK126B.jpg (size: 3823 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMK126B_4a01b8bc.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KML225LB.jpg (size: 16740 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KML225LB_1560a2e2.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMM120P.jpg (size: 49185 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMM120P_7bfbbc92.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMO123M.jpg (size: 4143 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMO123M_08d3ee8b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMS224LB.jpg (size: 19273 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMS224LB_5c686895.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KMS226LB.jpg (size: 17686 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KMS226LB_c889923b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KOB146MB.jpg (size: 17945 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KOB146MB_fae92f1d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KPW155MN.jpg (size: 4078 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KPW155MN_b5742780.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KRC124F.jpg (size: 6284 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KRC124F_94d22aa6.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KRI153DB.jpg (size: 15613 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KRI153DB_d620aab5.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KRS111P.jpg (size: 10200 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KRS111P_05645512.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSB159LR.jpg (size: 25963 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSB159LR_c751ccee.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSC104TM.jpg (size: 5440 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSC104TM_5b39eb56.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSF154DB.jpg (size: 5007 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSF154DB_503fbb3d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG103T.jpg (size: 7280 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSG103T_25f311af.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG116P.jpg (size: 9736 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSG116P_8387e482.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG121P.jpg (size: 7116 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSG121P_086b69dd.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG132R.jpg (size: 7154 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSG132R_fcbf76c0.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG157MN.jpg (size: 12295 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSG157MN_c81b98e4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSR106TM.jpg (size: 43377 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSR106TM_7af24737.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSR110P.jpg (size: 8278 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSR110P_f642e314.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSS105TM.jpg (size: 26000 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSS105TM_809414b7.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KSY113P.jpg (size: 5382 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KSY113P_7d4ba03a.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KVC148DB.jpg (size: 5764 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KVC148DB_f4cbbf0c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/KVF125F.jpg (size: 26328 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/KVF125F_e9ca8add.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SAG167.jpg (size: 6305 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SAG167_0ff7742c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SBP166.jpg (size: 9303 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SBP166_11c30c1c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SCB190.jpg (size: 12217 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SCB190_7031f405.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SCB191.jpg (size: 13946 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SCB191_3d9591a8.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SCF186.jpg (size: 31407 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SCF186_b6208ca0.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SCG198.jpg (size: 35013 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SCG198_2d88bf69.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SCP185.jpg (size: 4331 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SCP185_1570d066.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SDB194.jpg (size: 9394 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SDB194_200b29e8.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SDG193.jpg (size: 12395 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SDG193_27a01de7.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SDG196.jpg (size: 26051 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SDG196_51025ef0.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SDP184.jpg (size: 5040 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SDP184_5e3629ce.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SDP192.jpg (size: 12343 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SDP192_5df6fd2b.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SDP195.jpg (size: 8581 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SDP195_fa08f8b4.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SG178.jpg (size: 4787 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SG178_2c308ed1.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SG180.jpg (size: 7530 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SG180_d5a177f5.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SGG188.jpg (size: 15357 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SGG188_a12a8cdf.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SGM187.jpg (size: 60031 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SGM187_1e60937a.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLEP201.jpg (size: 31504 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLEP201_4579aff9.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM168.jpg (size: 9954 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLM168_84e0dbab.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM169.jpg (size: 9766 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLM169_4a427f77.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM170.jpg (size: 11934 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLM170_4d7e9320.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM171.jpg (size: 18851 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLM171_dfbb990d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM172.jpg (size: 10588 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLM172_8989169d.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM173.jpg (size: 10200 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SLM173_d3da3509.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SMM163.jpg (size: 19400 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SMM163_d246296f.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SMW165.jpg (size: 6120 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SMW165_1a21088c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SOM199.jpg (size: 8806 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SOM199_796dfb6a.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SOWJ164.jpg (size: 3729 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SOWJ164_7b0987ea.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SPG189.jpg (size: 36468 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SPG189_40400b51.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SRG181.jpg (size: 12064 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SRG181_18fe6754.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SRO162.jpg (size: 9514 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SRO162_8cc16b46.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSB161M.jpg (size: 10922 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSB161M_7e364a1c.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSB183.jpg (size: 11765 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSB183_a4b139e7.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSD177.jpg (size: 68442 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSD177_4543b18e.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSG179.jpg (size: 4696 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSG179_d14976f3.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSL174M.jpg (size: 11758 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSL174M_bf5c6478.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSL175M.jpg (size: 11261 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSL175M_4c4c0e75.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSO160M.jpg (size: 41562 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSO160M_97a9ca84.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSP182.jpg (size: 11961 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSP182_8340ca36.jpg
+Uploading file (webdev private): /home/ubuntu/webdev-static-assets/solution-color-card-references/SSW176.jpg (size: 2701 bytes)
+File uploaded successfully!
+Storage Path: /manus-storage/SSW176_6c8860db.jpg
+
+========== Upload Summary ==========
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GAS285.jpg -> /manus-storage/GAS285_c218b5a6.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GBM210.jpg -> /manus-storage/GBM210_44106d6a.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GCB322.jpg -> /manus-storage/GCB322_eb1faf03.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GCG313.jpg -> /manus-storage/GCG313_e765eba9.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GEG206.jpg -> /manus-storage/GEG206_b75a6fb7.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GET260.jpg -> /manus-storage/GET260_7b7c8520.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GFD275.jpg -> /manus-storage/GFD275_71849248.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GKG315.jpg -> /manus-storage/GKG315_c0af647c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GLD325.jpg -> /manus-storage/GLD325_6cb1cf51.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GLM262.jpg -> /manus-storage/GLM262_95e944cc.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMA283.jpg -> /manus-storage/GMA283_8627fe1e.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMB305.jpg -> /manus-storage/GMB305_8c1ded58.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMC246.jpg -> /manus-storage/GMC246_86528709.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMC263.jpg -> /manus-storage/GMC263_cdf626af.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMC267.jpg -> /manus-storage/GMC267_386c8cb8.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMD240.jpg -> /manus-storage/GMD240_4ce67209.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMD273.jpg -> /manus-storage/GMD273_b430ab46.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMD281.jpg -> /manus-storage/GMD281_599dbfaa.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMF251.jpg -> /manus-storage/GMF251_befda5df.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG250.jpg -> /manus-storage/GMG250_b451392c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG264.jpg -> /manus-storage/GMG264_97e22764.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG300.jpg -> /manus-storage/GMG300_60c8e5e4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMG302.jpg -> /manus-storage/GMG302_a3092b44.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMI294.jpg -> /manus-storage/GMI294_fb6962be.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GML286.jpg -> /manus-storage/GML286_65ae653d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM230.jpg -> /manus-storage/GMM230_5d1c9be3.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM238.jpg -> /manus-storage/GMM238_18672556.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM288.jpg -> /manus-storage/GMM288_0e002a86.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMM303.jpg -> /manus-storage/GMM303_8764bab0.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMN298.jpg -> /manus-storage/GMN298_35106bab.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMO276.jpg -> /manus-storage/GMO276_f78ac881.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMP232.jpg -> /manus-storage/GMP232_2537a73d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMP249.jpg -> /manus-storage/GMP249_19a5bdf6.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMP299.jpg -> /manus-storage/GMP299_e2a683fd.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMQ289.jpg -> /manus-storage/GMQ289_06b607e1.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMR245.jpg -> /manus-storage/GMR245_e7218d28.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMS233.jpg -> /manus-storage/GMS233_16fbb807.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMS282.jpg -> /manus-storage/GMS282_c2141502.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMS291.jpg -> /manus-storage/GMS291_452758c4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMT247.jpg -> /manus-storage/GMT247_04b16c20.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMT284.jpg -> /manus-storage/GMT284_aa5be4f2.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMT290.jpg -> /manus-storage/GMT290_aaf0fc24.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMU295.jpg -> /manus-storage/GMU295_04ce05ff.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GMV261.jpg -> /manus-storage/GMV261_73d2cc34.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GNB208.jpg -> /manus-storage/GNB208_b85f20b5.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GOB306.jpg -> /manus-storage/GOB306_06a6e27b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GOG204.jpg -> /manus-storage/GOG204_e8be1f02.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GOG323.jpg -> /manus-storage/GOG323_73fbc6dc.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GRO318.jpg -> /manus-storage/GRO318_f1bd3ab3.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSA309.jpg -> /manus-storage/GSA309_ed16c6f6.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSB256.jpg -> /manus-storage/GSB256_28fb5a2b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSB310.jpg -> /manus-storage/GSB310_b0f3574d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSB321.jpg -> /manus-storage/GSB321_0f5ece06.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSG271.jpg -> /manus-storage/GSG271_c5d5743f.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSG312.jpg -> /manus-storage/GSG312_f17df31d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSI265.jpg -> /manus-storage/GSI265_8caa08fa.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSK236.jpg -> /manus-storage/GSK236_6fbf8b53.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSL287.jpg -> /manus-storage/GSL287_c39b6845.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSM227.jpg -> /manus-storage/GSM227_a6685b9e.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSM301.jpg -> /manus-storage/GSM301_e5caa8a4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSR252.jpg -> /manus-storage/GSR252_53efe84b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSR266.jpg -> /manus-storage/GSR266_674a5e90.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GSS307.jpg -> /manus-storage/GSS307_ad055552.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GST257.jpg -> /manus-storage/GST257_61cacf0b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GST268.jpg -> /manus-storage/GST268_eafc3032.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GTG197.jpg -> /manus-storage/GTG197_8551534c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GTG314.jpg -> /manus-storage/GTG314_22556b0e.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUB229.jpg -> /manus-storage/GUB229_c1fabb60.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUB231.jpg -> /manus-storage/GUB231_eb4dbfe1.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUB243.jpg -> /manus-storage/GUB243_186a8b92.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUD258.jpg -> /manus-storage/GUD258_cce67ff4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUL239.jpg -> /manus-storage/GUL239_a1e6e643.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUL241.jpg -> /manus-storage/GUL241_62cefa95.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUL254.jpg -> /manus-storage/GUL254_de66aac6.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM228.jpg -> /manus-storage/GUM228_1d27bc07.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM244.jpg -> /manus-storage/GUM244_660d5a1b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM269.jpg -> /manus-storage/GUM269_6fee403d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUM277.jpg -> /manus-storage/GUM277_f0f944f3.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GUS234.jpg -> /manus-storage/GUS234_b3d79315.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/GV213.jpg -> /manus-storage/GV213_4e166eff.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KA129B.jpg -> /manus-storage/KA129B_01d0b9f4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KAG117P.jpg -> /manus-storage/KAG117P_e50b562d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KAG122P.jpg -> /manus-storage/KAG122P_56b791a4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KAM130R.jpg -> /manus-storage/KAM130R_09ab8778.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBB158LR.jpg -> /manus-storage/KBB158LR_1dbea43b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBG137BM.jpg -> /manus-storage/KBG137BM_523c8b62.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBG138BM.jpg -> /manus-storage/KBG138BM_57384b48.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBG1500B.jpg -> /manus-storage/KBG1500B_18c70394.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBK133R.jpg -> /manus-storage/KBK133R_ebb66dff.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBP149DB.jpg -> /manus-storage/KBP149DB_0aa1a58b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBR156MN.jpg -> /manus-storage/KBR156MN_6e4cd356.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KBV134R.jpg -> /manus-storage/KBV134R_6f7f41b3.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KCB142MB.jpg -> /manus-storage/KCB142MB_6acf4074.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KCG143MB.jpg -> /manus-storage/KCG143MB_ec288cb7.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KCG145MB.jpg -> /manus-storage/KCG145MB_66375a00.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KCR100T.jpg -> /manus-storage/KCR100T_a464f816.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KDC135R.jpg -> /manus-storage/KDC135R_d676690d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KDE127B.jpg -> /manus-storage/KDE127B_bb7e241c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KDS136BM.jpg -> /manus-storage/KDS136BM_5369b1a5.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KDS140MB.jpg -> /manus-storage/KDS140MB_45436d89.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KFB109P.jpg -> /manus-storage/KFB109P_287a5786.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KFG101T.jpg -> /manus-storage/KFG101T_ca0ea53b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KFL107N.jpg -> /manus-storage/KFL107N_0c2a55fd.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KGB102T.jpg -> /manus-storage/KGB102T_15002b61.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KGB128B.jpg -> /manus-storage/KGB128B_7d311e8b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KGG144MB.jpg -> /manus-storage/KGG144MB_e356cfdb.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KGM200MB.jpg -> /manus-storage/KGM200MB_855a327a.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KGN147AD.jpg -> /manus-storage/KGN147AD_db8a1add.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KGS108P.jpg -> /manus-storage/KGS108P_9e32260c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KLC131R.jpg -> /manus-storage/KLC131R_8597eb1f.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KLO112P.jpg -> /manus-storage/KLO112P_be73801c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB119P.jpg -> /manus-storage/KMB119P_e3c21264.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB151DB.jpg -> /manus-storage/KMB151DB_8d2590a2.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB1520B.jpg -> /manus-storage/KMB1520B_f7d767cb.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMB222LB.jpg -> /manus-storage/KMB222LB_0ca5531b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KME141MB.jpg -> /manus-storage/KME141MB_e8d9b9df.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMG114P.jpg -> /manus-storage/KMG114P_4578f728.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMG118P.jpg -> /manus-storage/KMG118P_deb4d120.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMG139MB.jpg -> /manus-storage/KMG139MB_8c9d54ab.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMK126B.jpg -> /manus-storage/KMK126B_4a01b8bc.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KML225LB.jpg -> /manus-storage/KML225LB_1560a2e2.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMM120P.jpg -> /manus-storage/KMM120P_7bfbbc92.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMO123M.jpg -> /manus-storage/KMO123M_08d3ee8b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMS224LB.jpg -> /manus-storage/KMS224LB_5c686895.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KMS226LB.jpg -> /manus-storage/KMS226LB_c889923b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KOB146MB.jpg -> /manus-storage/KOB146MB_fae92f1d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KPW155MN.jpg -> /manus-storage/KPW155MN_b5742780.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KRC124F.jpg -> /manus-storage/KRC124F_94d22aa6.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KRI153DB.jpg -> /manus-storage/KRI153DB_d620aab5.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KRS111P.jpg -> /manus-storage/KRS111P_05645512.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSB159LR.jpg -> /manus-storage/KSB159LR_c751ccee.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSC104TM.jpg -> /manus-storage/KSC104TM_5b39eb56.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSF154DB.jpg -> /manus-storage/KSF154DB_503fbb3d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG103T.jpg -> /manus-storage/KSG103T_25f311af.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG116P.jpg -> /manus-storage/KSG116P_8387e482.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG121P.jpg -> /manus-storage/KSG121P_086b69dd.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG132R.jpg -> /manus-storage/KSG132R_fcbf76c0.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSG157MN.jpg -> /manus-storage/KSG157MN_c81b98e4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSR106TM.jpg -> /manus-storage/KSR106TM_7af24737.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSR110P.jpg -> /manus-storage/KSR110P_f642e314.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSS105TM.jpg -> /manus-storage/KSS105TM_809414b7.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KSY113P.jpg -> /manus-storage/KSY113P_7d4ba03a.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KVC148DB.jpg -> /manus-storage/KVC148DB_f4cbbf0c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/KVF125F.jpg -> /manus-storage/KVF125F_e9ca8add.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SAG167.jpg -> /manus-storage/SAG167_0ff7742c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SBP166.jpg -> /manus-storage/SBP166_11c30c1c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SCB190.jpg -> /manus-storage/SCB190_7031f405.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SCB191.jpg -> /manus-storage/SCB191_3d9591a8.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SCF186.jpg -> /manus-storage/SCF186_b6208ca0.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SCG198.jpg -> /manus-storage/SCG198_2d88bf69.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SCP185.jpg -> /manus-storage/SCP185_1570d066.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SDB194.jpg -> /manus-storage/SDB194_200b29e8.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SDG193.jpg -> /manus-storage/SDG193_27a01de7.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SDG196.jpg -> /manus-storage/SDG196_51025ef0.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SDP184.jpg -> /manus-storage/SDP184_5e3629ce.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SDP192.jpg -> /manus-storage/SDP192_5df6fd2b.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SDP195.jpg -> /manus-storage/SDP195_fa08f8b4.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SG178.jpg -> /manus-storage/SG178_2c308ed1.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SG180.jpg -> /manus-storage/SG180_d5a177f5.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SGG188.jpg -> /manus-storage/SGG188_a12a8cdf.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SGM187.jpg -> /manus-storage/SGM187_1e60937a.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLEP201.jpg -> /manus-storage/SLEP201_4579aff9.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM168.jpg -> /manus-storage/SLM168_84e0dbab.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM169.jpg -> /manus-storage/SLM169_4a427f77.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM170.jpg -> /manus-storage/SLM170_4d7e9320.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM171.jpg -> /manus-storage/SLM171_dfbb990d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM172.jpg -> /manus-storage/SLM172_8989169d.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SLM173.jpg -> /manus-storage/SLM173_d3da3509.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SMM163.jpg -> /manus-storage/SMM163_d246296f.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SMW165.jpg -> /manus-storage/SMW165_1a21088c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SOM199.jpg -> /manus-storage/SOM199_796dfb6a.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SOWJ164.jpg -> /manus-storage/SOWJ164_7b0987ea.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SPG189.jpg -> /manus-storage/SPG189_40400b51.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SRG181.jpg -> /manus-storage/SRG181_18fe6754.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SRO162.jpg -> /manus-storage/SRO162_8cc16b46.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSB161M.jpg -> /manus-storage/SSB161M_7e364a1c.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSB183.jpg -> /manus-storage/SSB183_a4b139e7.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSD177.jpg -> /manus-storage/SSD177_4543b18e.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSG179.jpg -> /manus-storage/SSG179_d14976f3.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSL174M.jpg -> /manus-storage/SSL174M_bf5c6478.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSL175M.jpg -> /manus-storage/SSL175M_4c4c0e75.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSO160M.jpg -> /manus-storage/SSO160M_97a9ca84.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSP182.jpg -> /manus-storage/SSP182_8340ca36.jpg
+[SUCCESS] /home/ubuntu/webdev-static-assets/solution-color-card-references/SSW176.jpg -> /manus-storage/SSW176_6c8860db.jpg
+=====================================
+Total: 184, Success: 184, Failed: 0

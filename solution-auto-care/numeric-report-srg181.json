@@ -1,0 +1,34 @@
+{
+  "previewUrl": "/manus-storage/generated/1788924883746_81be0026.png",
+  "materialReferenceUrl": "/manus-storage/SRG181_18fe6754.jpg",
+  "colorReview": {
+    "status": "matched",
+    "confidence": 0.95,
+    "message": "色卡比對通過：車身主色與 SRG181 的材質色卡方向一致。"
+  },
+  "colorMetrics": {
+    "status": "matched",
+    "mode": "hue",
+    "reference": {
+      "hue": 172.06223537186452,
+      "saturation": 0.9830303875631279,
+      "value": 0.6553596263268326,
+      "red": 3,
+      "green": 167,
+      "blue": 145
+    },
+    "preview": {
+      "hue": 174.69360355591766,
+      "saturation": 0.9342097476434035,
+      "value": 0.4137040188979728,
+      "red": 7,
+      "green": 115,
+      "blue": 105
+    },
+    "hueDelta": 2.6313681840531444,
+    "saturationDelta": 0.04882063991972441,
+    "valueDelta": 0.24165560742885983,
+    "rgbDistance": 0.1488130663608649,
+    "message": "數值色相檢查通過：色相差 3°。"
+  }
+}

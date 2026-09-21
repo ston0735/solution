@@ -1,0 +1,34 @@
+{
+  "previewUrl": "/manus-storage/generated/1788924986372_c45bcaf1.png",
+  "materialReferenceUrl": "/manus-storage/SLM171_dfbb990d.jpg",
+  "colorReview": {
+    "status": "matched",
+    "confidence": 0.95,
+    "message": "色卡比對通過：車身主色與 SLM171 的材質色卡方向一致。"
+  },
+  "colorMetrics": {
+    "status": "matched",
+    "mode": "neutral",
+    "reference": {
+      "hue": 250.00000000000003,
+      "saturation": 0.03370786516853921,
+      "value": 0.6980392156862745,
+      "red": 173,
+      "green": 172,
+      "blue": 178
+    },
+    "preview": {
+      "hue": 264,
+      "saturation": 0.03597122302158261,
+      "value": 0.5450980392156862,
+      "red": 136,
+      "green": 134,
+      "blue": 139
+    },
+    "hueDelta": 13.999999999999972,
+    "saturationDelta": 0.0022633578530434004,
+    "valueDelta": 0.15294117647058825,
+    "rgbDistance": 0.14905400359843504,
+    "message": "數值色相檢查通過：色相差 14°。"
+  }
+}
