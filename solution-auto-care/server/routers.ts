@@ -9,11 +9,16 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { storageGetSignedUrl } from "./storage";
 import { assertPantoneId, buildWrapPreviewPrompt, decodeVehicleImage, getCatalogColorReferenceKey, getWrapPreviewErrorMessage, normalizePartialWrapCustomizations } from "./wrapPreview";
+import { getMaterialCardAssetPath, getMaterialCardRawUrl } from "@shared/wrapAssetPaths";
 
 async function loadCatalogMaterialReference(key?: string) {
   if (!key) return undefined;
-  const signedUrl = await storageGetSignedUrl(key);
-  const response = await fetch(signedUrl);
+  let signedUrl = getMaterialCardRawUrl(key);
+  let response = await fetch(signedUrl);
+  if (!response.ok) {
+    signedUrl = await storageGetSignedUrl(key);
+    response = await fetch(signedUrl);
+  }
   if (!response.ok) throw new Error("無法讀取所選型錄色卡的材質參考。");
   const contentType = response.headers.get("content-type")?.split(";")[0] || "image/jpeg";
   if (!contentType.startsWith("image/")) throw new Error("型錄色卡參考格式無法辨識。");
@@ -94,7 +99,7 @@ export const appRouter = router({
           return {
             previewUrl: generated.url,
             pantoneId,
-            materialReferenceUrl: materialReferenceKey ? `/manus-storage/${materialReferenceKey}` : undefined,
+            materialReferenceUrl: materialReferenceKey ? getMaterialCardAssetPath(materialReferenceKey) : undefined,
             colorReview,
             colorMetrics,
             partialWrapCustomizations,
