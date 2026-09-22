@@ -18,6 +18,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import WrapColorPreview from "@/components/WrapColorPreview";
+import { WRAP_HERO_IMAGE_ASSET_PATH, WRAP_HERO_VIDEO_ASSET_PATH, WRAP_LOGO_ASSET_PATH } from "@shared/wrapAssetPaths";
 
 const services = [
   {
@@ -107,7 +108,7 @@ export default function Home() {
             className="group flex items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a9ff44]"
             aria-label="回到首頁"
           >
-            <img src="/manus-storage/solution-car-wrap-logo_01d39d4e.png" alt="Solution Car Wrap" className="h-auto w-[154px] object-contain object-left transition-transform duration-200 group-hover:scale-[1.025] group-active:scale-[0.98] sm:w-[174px]" />
+            <img src={WRAP_LOGO_ASSET_PATH} alt="Solution Car Wrap" className="h-auto w-[154px] object-contain object-left transition-transform duration-200 group-hover:scale-[1.025] group-active:scale-[0.98] sm:w-[174px]" />
           </button>
 
           <nav className="hidden items-center gap-7 lg:flex" aria-label="主要導覽">
@@ -172,7 +173,7 @@ export default function Home() {
       <main id="top">
         <section className="relative flex min-h-[760px] items-end overflow-hidden px-5 pb-10 pt-36 sm:px-8 lg:min-h-screen lg:px-10 lg:pb-14">
           <img
-            src="/manus-storage/solution-hero-midnight_988e83e4.jpg"
+            src={WRAP_HERO_IMAGE_ASSET_PATH}
             alt="深色跑車於專業施工空間中呈現車漆與保護膜的光澤"
             className="absolute inset-0 h-full w-full object-cover object-[64%_center]"
           />
@@ -183,10 +184,10 @@ export default function Home() {
             loop
             playsInline
             preload="metadata"
-            poster="/manus-storage/solution-hero-midnight_988e83e4.jpg"
+            poster={WRAP_HERO_IMAGE_ASSET_PATH}
             aria-hidden="true"
           >
-            <source src="/manus-storage/solution-hero-motion_bf43e9d1.mp4" type="video/mp4" />
+            <source src={WRAP_HERO_VIDEO_ASSET_PATH} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(6,7,6,0.95)_0%,rgba(7,8,7,0.78)_40%,rgba(7,8,7,0.18)_82%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(7,8,7,0.86)_0%,rgba(7,8,7,0)_52%)]" />
@@ -291,7 +292,7 @@ export default function Home() {
         <WrapColorPreview />
 
         <section id="services" className="relative overflow-hidden bg-[#0b0b0a] px-5 py-20 sm:px-8 lg:px-10 lg:py-32">
-          <img src="/manus-storage/solution-car-wrap-logo_01d39d4e.png" alt="" aria-hidden="true" className="pointer-events-none absolute -right-20 top-52 w-[36rem] object-contain opacity-[0.035]" />
+          <img src={WRAP_LOGO_ASSET_PATH} alt="" aria-hidden="true" className="pointer-events-none absolute -right-20 top-52 w-[36rem] object-contain opacity-[0.035]" />
           <div data-reveal className="relative mx-auto max-w-[1600px]">
             <div className="mb-12 flex flex-col justify-between gap-6 border-b border-white/15 pb-7 md:flex-row md:items-end lg:mb-16">
               <div>
@@ -376,7 +377,7 @@ export default function Home() {
         </section>
 
         <section id="contact" className="relative overflow-hidden border-t border-[#a9ff44] bg-[#1a1c17] px-5 py-20 text-[#edf0e7] sm:px-8 lg:px-10 lg:py-24">
-          <img src="/manus-storage/solution-car-wrap-logo_01d39d4e.png" alt="" aria-hidden="true" className="pointer-events-none absolute -right-16 -top-2 w-[34rem] object-contain opacity-[0.08]" />
+          <img src={WRAP_LOGO_ASSET_PATH} alt="" aria-hidden="true" className="pointer-events-none absolute -right-16 -top-2 w-[34rem] object-contain opacity-[0.08]" />
           <div data-reveal className="relative mx-auto flex max-w-[1600px] flex-col justify-between gap-12 lg:flex-row lg:items-end">
             <div>
               <p className="text-[0.68rem] font-bold tracking-[0.2em] text-[#a9ff44]">SCHEDULE A SURFACE REVIEW</p>
@@ -395,7 +396,7 @@ export default function Home() {
       <footer className="bg-[#0b0b0a] px-5 pt-12 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-[1600px]">
           <div className="flex flex-col justify-between gap-8 border-b border-white/12 pb-12 md:flex-row md:items-end">
-            <img src="/manus-storage/solution-car-wrap-logo_01d39d4e.png" alt="Solution Car Wrap" className="h-auto w-56 max-w-full object-contain object-left sm:w-64" />
+            <img src={WRAP_LOGO_ASSET_PATH} alt="Solution Car Wrap" className="h-auto w-56 max-w-full object-contain object-left sm:w-64" />
             <p className="max-w-sm text-sm leading-6 text-white/45">汽車包膜・透明保護膜・精緻汽車美容<br />地點與正式預約資訊可於上線前依您的店址補上。</p>
           </div>
           <div className="flex flex-col gap-3 py-5 text-[0.63rem] font-medium tracking-[0.12em] text-white/35 sm:flex-row sm:items-center sm:justify-between">
