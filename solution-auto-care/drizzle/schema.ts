@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, primaryKey, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +25,35 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Per-client, short-lived cache of completed wrap previews. Cache rows avoid
+ * requesting a new OpenAI image when the same IP resubmits the exact image and
+ * options within the configured TTL.
+ */
+export const wrapPreviewCache = mysqlTable("wrap_preview_cache", {
+  cacheKey: varchar("cacheKey", { length: 64 }).primaryKey(),
+  responseJson: text("responseJson").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+/**
+ * Per-IP daily counter and active generation lease. The composite primary key
+ * keeps a separate budget for every UTC calendar day without storing raw IPs.
+ */
+export const wrapPreviewUsage = mysqlTable(
+  "wrap_preview_usage",
+  {
+    ipHash: varchar("ipHash", { length: 64 }).notNull(),
+    usageDay: varchar("usageDay", { length: 10 }).notNull(),
+    completedCount: int("completedCount").default(0).notNull(),
+    activeCount: int("activeCount").default(0).notNull(),
+    activeSince: timestamp("activeSince"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  table => ({
+    primary: primaryKey({ columns: [table.ipHash, table.usageDay] }),
+  }),
+);
