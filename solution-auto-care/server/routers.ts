@@ -105,9 +105,9 @@ export const appRouter = router({
             ],
             // Keep the two-image catalog flow within the production gateway
             // timeout. The physical swatch remains the authoritative second
-            // reference; medium quality is sufficient for a customer concept
-            // preview and is substantially more reliable on mobile networks.
-            quality: "medium",
+            // reference; low quality is sufficient for a first concept preview
+            // and keeps the two-image request reliable on mobile networks.
+            quality: materialReference ? "low" : undefined,
           });
 
           if (!generated.url) throw new Error("AI 未回傳預覽圖片。");
