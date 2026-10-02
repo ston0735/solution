@@ -119,10 +119,16 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
   }
 
   const form = new FormData();
-  form.set("model", options.model || OPENAI_IMAGE_MODEL);
+  const selectedModel = options.model || OPENAI_IMAGE_MODEL;
+  form.set("model", selectedModel);
   form.set("prompt", options.prompt);
   form.set("quality", options.quality || DEFAULT_IMAGE_QUALITY);
-  form.set("input_fidelity", "high");
+  // OpenAI's current Images Edits contract requires input_fidelity to be
+  // omitted for GPT Image 2. It is supported by older GPT Image 1 models,
+  // but sending it to GPT Image 2 causes the request to be rejected.
+  if (selectedModel === "gpt-image-1" || selectedModel === "gpt-image-1.5") {
+    form.set("input_fidelity", "high");
+  }
   form.set("background", "opaque");
   form.set("output_format", "png");
 
