@@ -9,6 +9,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { storageGetSignedUrl } from "./storage";
 import { assertPantoneId, buildWrapPreviewPrompt, decodeVehicleImage, getCatalogColorReferenceKey, getWrapPreviewErrorMessage, normalizePartialWrapCustomizations } from "./wrapPreview";
+import { claimWrapPreviewGeneration, createWrapPreviewCacheKey, finishWrapPreviewGeneration, getCachedWrapPreview, getClientIp, hashClientIp, saveCachedWrapPreview, type WrapPreviewUsageClaim } from "./wrapPreviewLimits";
+import { getWrapPreviewHealth } from "./wrapPreviewHealth";
 import { getMaterialCardAssetPath, getMaterialCardRawUrl } from "@shared/wrapAssetPaths";
 
 async function loadCatalogMaterialReference(key?: string) {
@@ -33,6 +35,15 @@ async function loadImageBuffer(signedUrl: string) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+type WrapPreviewResponse = {
+  previewUrl: string;
+  pantoneId: string;
+  materialReferenceUrl?: string;
+  colorReview: Awaited<ReturnType<typeof reviewColorConsistency>>;
+  colorMetrics: Awaited<ReturnType<typeof measureColorConsistency>> | undefined;
+  partialWrapCustomizations: ReturnType<typeof normalizePartialWrapCustomizations>;
+};
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -48,6 +59,10 @@ export const appRouter = router({
   }),
 
   wrapPreview: router({
+    health: publicProcedure.query(({ ctx }) => {
+      ctx.res.setHeader("Cache-Control", "no-store, private");
+      return getWrapPreviewHealth();
+    }),
     generate: publicProcedure
       .input(z.object({
         pantoneId: z.string().min(2).max(48),
@@ -65,8 +80,18 @@ export const appRouter = router({
           finish: z.enum(["blackout", "carbon_fiber"]),
         })).max(4).optional(),
       }))
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
+        let usageClaim: WrapPreviewUsageClaim | undefined;
+        let imageGenerationCompleted = false;
         try {
+          ctx.res.setHeader("Cache-Control", "no-store, private");
+          const clientIp = getClientIp(ctx.req.headers, ctx.req.socket.remoteAddress);
+          const ipHash = hashClientIp(clientIp);
+          const cacheKey = createWrapPreviewCacheKey(ipHash, input);
+          const cached = await getCachedWrapPreview<WrapPreviewResponse>(cacheKey);
+          if (cached) return cached;
+
+          usageClaim = await claimWrapPreviewGeneration(ipHash);
           const pantoneId = assertPantoneId(input.pantoneId);
           const { buffer, mimeType } = decodeVehicleImage(input.imageBase64);
           const materialReferenceKey = getCatalogColorReferenceKey(pantoneId, input.catalogColor);
@@ -82,6 +107,7 @@ export const appRouter = router({
           });
 
           if (!generated.url) throw new Error("AI 未回傳預覽圖片。");
+          imageGenerationCompleted = true;
 
           const previewKey = generated.url.replace(/^\/manus-storage\//, "");
           const previewSignedUrl = materialReference ? await storageGetSignedUrl(previewKey) : undefined;
@@ -96,7 +122,7 @@ export const appRouter = router({
             })
             : { status: "unavailable" as const, confidence: 0, message: "此預覽未使用型錄實體色卡參考。" };
 
-          return {
+          const previewResponse: WrapPreviewResponse = {
             previewUrl: generated.url,
             pantoneId,
             materialReferenceUrl: materialReferenceKey ? getMaterialCardAssetPath(materialReferenceKey) : undefined,
@@ -104,12 +130,20 @@ export const appRouter = router({
             colorMetrics,
             partialWrapCustomizations,
           };
+          await saveCachedWrapPreview(cacheKey, previewResponse);
+          return previewResponse;
         } catch (error) {
           console.error("[WrapPreview] generation failed", error);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: getWrapPreviewErrorMessage(error),
           });
+        } finally {
+          if (usageClaim) {
+            await finishWrapPreviewGeneration(usageClaim, imageGenerationCompleted).catch(error => {
+              console.error("[WrapPreview] usage limiter release failed", error);
+            });
+          }
         }
       }),
   }),

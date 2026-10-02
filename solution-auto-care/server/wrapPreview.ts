@@ -78,6 +78,46 @@ export function getWrapPreviewErrorMessage(error: unknown) {
   const rawMessage = error instanceof Error ? error.message : String(error ?? "");
   const normalizedMessage = rawMessage.toLowerCase();
 
+  if (normalizedMessage.includes("openai_key_missing")) {
+    return "AI 圖片服務尚未完成伺服器端設定，請通知網站管理員。";
+  }
+
+  if (normalizedMessage.includes("openai_auth")) {
+    return "AI 圖片服務驗證失敗，請通知網站管理員檢查伺服器端設定。";
+  }
+
+  if (normalizedMessage.includes("openai_quota") || normalizedMessage.includes("insufficient_quota")) {
+    return "AI 圖片生成服務的可用額度不足，暫時無法生成預覽；請稍後再試。";
+  }
+
+  if (normalizedMessage.includes("openai_rate_limit")) {
+    return "AI 圖片生成服務目前較忙碌，請稍後再試。";
+  }
+
+  if (normalizedMessage.includes("openai_moderation")) {
+    return "這次預覽請求未能通過圖片服務的安全審核，請更換車照或調整需求後再試。";
+  }
+
+  if (normalizedMessage.includes("openai_invalid_image_input")) {
+    return "上傳的車照或色卡參考無法由 AI 圖片服務讀取，請更換圖片後再試。";
+  }
+
+  if (normalizedMessage.includes("preview_daily_limit")) {
+    return "為維持預覽服務品質，同一網路位址每天最多可建立 2 張新預覽圖；請於明日再試，或直接聯絡 Solution 預約諮詢。";
+  }
+
+  if (normalizedMessage.includes("preview_concurrent_limit")) {
+    return "此網路位址已有一筆預覽正在生成中，請等待目前流程完成後再試。";
+  }
+
+  if (normalizedMessage.includes("preview_limiter_unavailable")) {
+    return "預覽服務的用量保護暫時無法確認，為避免產生未受控費用，請稍後再試。";
+  }
+
+  if (normalizedMessage.startsWith("openai_")) {
+    return "目前無法生成包膜預覽，請稍後再試。";
+  }
+
   if (normalizedMessage.includes("usage exhausted") || normalizedMessage.includes("usage_exhausted")) {
     return "AI 圖片生成服務目前的可用額度已用盡，暫時無法生成預覽；請稍後再試。";
   }

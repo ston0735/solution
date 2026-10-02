@@ -88,4 +88,11 @@ describe("wrap preview validation", () => {
   it("translates rate-limit failures without exposing provider details", () => {
     expect(getWrapPreviewErrorMessage(new Error("429 Too Many Requests"))).toContain("較忙碌");
   });
+
+  it("translates OpenAI billing, authentication, and safety errors without exposing provider details", () => {
+    expect(getWrapPreviewErrorMessage(new Error("OPENAI_QUOTA"))).toContain("可用額度不足");
+    expect(getWrapPreviewErrorMessage(new Error("OPENAI_AUTH"))).toContain("驗證失敗");
+    expect(getWrapPreviewErrorMessage(new Error("OPENAI_MODERATION"))).toContain("安全審核");
+    expect(getWrapPreviewErrorMessage(new Error("OPENAI_IMAGE_REQUEST_FAILED"))).not.toContain("OPENAI");
+  });
 });
