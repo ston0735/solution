@@ -103,7 +103,11 @@ export const appRouter = router({
               { b64Json: buffer.toString("base64"), mimeType },
               ...(materialReference ? [materialReference] : []),
             ],
-            quality: materialReference ? "high" : undefined,
+            // Keep the two-image catalog flow within the production gateway
+            // timeout. The physical swatch remains the authoritative second
+            // reference; medium quality is sufficient for a customer concept
+            // preview and is substantially more reliable on mobile networks.
+            quality: "medium",
           });
 
           if (!generated.url) throw new Error("AI 未回傳預覽圖片。");

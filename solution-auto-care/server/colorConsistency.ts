@@ -14,6 +14,18 @@ type VisionResponse = {
   reason: string;
 };
 
+const COLOR_REVIEW_TIMEOUT_MS = 8_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("COLOR_REVIEW_TIMEOUT")), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 export function parseColorConsistencyReview(raw: string): VisionResponse {
   const parsed = JSON.parse(raw) as VisionResponse;
   if (typeof parsed.isConsistent !== "boolean" || typeof parsed.confidence !== "number" || typeof parsed.observedColor !== "string" || typeof parsed.reason !== "string") {
@@ -32,7 +44,7 @@ export async function reviewColorConsistency({
   color: CatalogColorContext;
 }): Promise<ColorConsistencyReview> {
   try {
-    const response = await invokeLLM({
+    const response = await withTimeout(invokeLLM({
       maxTokens: 180,
       response_format: {
         type: "json_schema",
@@ -66,7 +78,7 @@ export async function reviewColorConsistency({
           ],
         },
       ],
-    });
+    }), COLOR_REVIEW_TIMEOUT_MS);
     const content = response.choices[0]?.message.content;
     const raw = typeof content === "string" ? content : "";
     const review = parseColorConsistencyReview(raw);
