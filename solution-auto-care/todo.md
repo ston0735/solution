@@ -71,7 +71,31 @@
 ## GitHub 與 Vercel 部署
 
 - [x] 確認指定公開倉庫 `ston0735/solution` 已存在且目前為空，後續保留既有內容策略不會造成覆寫。
-- [ ] 啟用並授權 GitHub 與 Vercel 整合。
-- [ ] 將 Solution Car Wrap 專案安全推送至指定倉庫的獨立目錄。
-- [ ] 在 Vercel 建立以該獨立目錄為根目錄的 Node.js 全端部署。
-- [ ] 設定必要的 production 環境變數並驗證正式網址。
+- [x] 啟用並授權 GitHub 與 Vercel 整合。
+- [x] 將 Solution Car Wrap 專案安全推送至指定倉庫的獨立目錄。
+- [x] 在 Vercel 建立以 `solution-auto-care` 為根目錄的 production 部署，並修正 Vercel schema、Node runtime 與 routing 設定。
+- [x] 完成 production 設定並驗證正式網址；Vercel 採靜態前端部署，透過 rewrite 使用既有 Manus production origin，因此不需把 Manus secrets 複製到 Vercel。
+- [x] 在正式網址驗證首頁、`auth.me`、預覽 API 輸入驗證、`/manus-storage/*` 代理與 OAuth callback；實際 AI 生成暫不重試，因上游圖片服務仍是 `usage exhausted`，不是部署錯誤。
+- [x] 從 Vercel Dashboard 以 Production 環境直接 Redeploy 最新版本；最新 deployment 已進入 `READY`，正式 alias 為 `solution-car-wrap.vercel.app`。
+
+## GitHub 素材完整同步
+
+- [x] 將 Solution logo、Hero 圖片、背景影片與 184 張實體材質色卡納入 `ston0735/solution` 的 `solution-auto-care/client/public/assets`。
+- [x] 修正色卡檔案的 GitHub 目錄位置，確保 184 張色卡位於 `color-card-references`，與程式及 Vercel 靜態路徑一致。
+- [x] 將首頁、favicon、AI 色卡參考圖讀取路徑切換至 repository-hosted assets。
+- [x] 以 GitHub tree 確認正確色卡數量為 184，並以 `https://solution-car-wrap.vercel.app/` 驗證 Vercel 回傳 HTTP 200 的 Solution 首頁。
+
+## 使用者自有 OpenAI 圖片生成
+
+- [x] 以安全的 `OPENAI_API_KEY` 驗證 OpenAI 圖片模型存取權，且不在程式、日誌或版本控制中暴露 Key。
+- [x] 將車色預覽後端改用 OpenAI Images Edits API，保留車照、實體材質色卡與局部包膜雙參考圖流程。
+- [x] 將 OpenAI 額度、限流、認證與安全審核失敗轉成清楚的繁中訊息。
+- [x] 執行單元測試、型別檢查與建置；模型存取驗證通過，尚未發送會產生 OpenAI 圖片費用的測試生成請求。
+- [ ] 將大型 Hero 圖片與背景影片移至 WebDev File Storage、建立 checkpoint，並部署含 OpenAI 後端的正式版本。
+
+## OpenAI production 用量防護
+
+- [ ] 為相同車照與選項加入 24 小時預覽結果快取，避免重複支付相同圖片編輯請求。
+- [ ] 以持久化資料表限制每個 IP 每日最多 2 次新圖片生成，且同一 IP 同時最多 1 次生成中請求。
+- [ ] 對 Vercel `/api/*` 設定不共享快取，保留 Storage 與正式 API rewrite 路由。
+- [ ] 驗證資料表、單元測試、型別、建置、正式 API 與不產生圖片費用的 OpenAI 健康路徑。
