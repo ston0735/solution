@@ -129,13 +129,22 @@ export default function Home() {
             ))}
           </nav>
 
-          <button
-            type="button"
-            onClick={() => navigateTo("contact")}
-            className="hidden items-center gap-3 border border-[#a9ff44] bg-[#a9ff44] px-4 py-2 text-xs font-bold tracking-[0.12em] text-[#10130a] transition-all duration-200 hover:bg-white hover:pr-3 active:scale-[0.97] lg:flex"
-          >
-            預約諮詢 <ArrowUpRight size={14} strokeWidth={2.3} />
-          </button>
+          <div className="hidden items-center gap-3 lg:flex">
+            <button
+              type="button"
+              onClick={() => { window.location.href = "/member"; }}
+              className="border border-white/25 px-4 py-2 text-xs font-bold tracking-[0.12em] text-white/80 transition-all duration-200 hover:border-[#a9ff44] hover:text-[#a9ff44] active:scale-[0.97]"
+            >
+              會員專區
+            </button>
+            <button
+              type="button"
+              onClick={() => navigateTo("contact")}
+              className="flex items-center gap-3 border border-[#a9ff44] bg-[#a9ff44] px-4 py-2 text-xs font-bold tracking-[0.12em] text-[#10130a] transition-all duration-200 hover:bg-white hover:pr-3 active:scale-[0.97]"
+            >
+              預約諮詢 <ArrowUpRight size={14} strokeWidth={2.3} />
+            </button>
+          </div>
 
           <button
             type="button"
@@ -153,6 +162,7 @@ export default function Home() {
             {[
               ["服務項目", "services"],
               ["AI 車色預覽", "wrap-preview"],
+              ["會員專區", "member"],
               ["施工流程", "process"],
               ["關於 Solution", "about"],
               ["預約諮詢", "contact"],
@@ -160,7 +170,7 @@ export default function Home() {
               <button
                 key={id}
                 type="button"
-                onClick={() => navigateTo(id)}
+                onClick={() => { id === "member" ? window.location.assign("/member") : navigateTo(id); }}
                 className="flex items-center justify-between border-b border-white/10 py-4 text-left text-sm font-medium tracking-[0.08em] text-white/80 last:border-b-0"
               >
                 {label} <ArrowUpRight size={16} className="text-[#a9ff44]" />
