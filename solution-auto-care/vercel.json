@@ -22,6 +22,10 @@
     {
       "source": "/manus-storage/:path*",
       "destination": "https://solauto1care-rmvw9wqm.manus.space/manus-storage/:path*"
+    },
+    {
+      "source": "/member",
+      "destination": "/"
     }
   ]
 }
