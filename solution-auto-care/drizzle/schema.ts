@@ -57,3 +57,26 @@ export const wrapPreviewUsage = mysqlTable(
     primary: primaryKey({ columns: [table.ipHash, table.usageDay] }),
   }),
 );
+
+/**
+ * Member-owned preview records. The image bytes live in File Storage; this table
+ * keeps only storage URLs and the choices needed by the CRM audit view.
+ */
+export const memberPreviewHistory = mysqlTable("member_preview_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  previewUrl: text("previewUrl").notNull(),
+  originalImageUrl: text("originalImageUrl"),
+  pantoneId: varchar("pantoneId", { length: 48 }).notNull(),
+  catalogColorJson: text("catalogColorJson"),
+  aspectRatio: varchar("aspectRatio", { length: 20 }).notNull(),
+  outputSize: varchar("outputSize", { length: 32 }),
+  partialWrapCustomizations: text("partialWrapCustomizations").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  retentionDays: int("retentionDays").default(3).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  isSaved: int("isSaved").default(0).notNull(),
+});
+
+export type MemberPreviewHistory = typeof memberPreviewHistory.$inferSelect;
+export type InsertMemberPreviewHistory = typeof memberPreviewHistory.$inferInsert;

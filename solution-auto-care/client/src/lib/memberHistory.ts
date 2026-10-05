@@ -3,6 +3,14 @@ export type PreviewHistoryItem = {
   previewUrl: string;
   originalImageUrl: string | null;
   pantoneId: string;
+  catalogColor: {
+    code: string;
+    category: string;
+    categoryEn: string;
+    name: string;
+    nameZh: string;
+    swatch: string;
+  } | null;
   aspectRatio: string;
   outputSize?: string | null;
   partialWrapCustomizations: Array<{ part?: string; finish?: string }>;
@@ -20,6 +28,7 @@ type CreateHistoryInput = {
   previewUrl: string;
   originalImageDataUrl: string;
   pantoneId: string;
+  catalogColor?: PreviewHistoryItem["catalogColor"];
   aspectRatio: string;
   outputSize?: string | null;
   partialWrapCustomizations: Array<{ part?: string; finish?: string }>;

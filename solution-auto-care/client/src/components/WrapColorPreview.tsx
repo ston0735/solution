@@ -232,6 +232,7 @@ export default function WrapColorPreview() {
             previewUrl: result.previewUrl,
             originalImageDataUrl: sourcePreview,
             pantoneId: result.pantoneId,
+            catalogColor: catalogColorContext ?? null,
             aspectRatio,
             outputSize,
             partialWrapCustomizations: result.partialWrapCustomizations,

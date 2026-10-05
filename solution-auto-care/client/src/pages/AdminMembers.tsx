@@ -3,23 +3,34 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import {
   AdminMemberDirectoryError,
   getAdminMemberDirectory,
+  getAdminMemberPreviews,
   type AdminMember,
+  type AdminMemberPreview,
   type AdminMemberDirectory,
 } from "@/lib/adminMembers";
 import { WRAP_LOGO_ASSET_PATH } from "@shared/wrapAssetPaths";
 import {
+  PARTIAL_WRAP_FINISHES,
+  PARTIAL_WRAP_PARTS,
+} from "@shared/partialWrapOptions";
+import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   Download,
+  ExternalLink,
   FileSpreadsheet,
+  ImageOff,
   LockKeyhole,
   RefreshCcw,
   Search,
   ShieldCheck,
+  Settings2,
   Sparkles,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Fragment, FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
@@ -46,6 +57,28 @@ function displayLoginMethod(method: string | null) {
     github: "GitHub",
   };
   return normalized ? labels[normalized] || normalized : "Manus OAuth";
+}
+
+function displayPreviewColor(preview: AdminMemberPreview) {
+  const color = preview.catalogColor;
+  return color?.nameZh || color?.name || color?.category || preview.pantoneId;
+}
+
+function displayPreviewConfiguration(preview: AdminMemberPreview) {
+  if (!preview.partialWrapCustomizations.length) return "全車包膜";
+  return preview.partialWrapCustomizations
+    .map(item => {
+      const part =
+        PARTIAL_WRAP_PARTS[item.part as keyof typeof PARTIAL_WRAP_PARTS]?.label ??
+        item.part ??
+        "局部";
+      const finish =
+        PARTIAL_WRAP_FINISHES[
+          item.finish as keyof typeof PARTIAL_WRAP_FINISHES
+        ]?.label ?? item.finish ?? "材質";
+      return `${part}・${finish}`;
+    })
+    .join("、");
 }
 
 function csvCell(value: string | number | null | undefined) {
@@ -194,6 +227,12 @@ export default function AdminMembers() {
   const [directory, setDirectory] = useState<AdminMemberDirectory | null>(null);
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [directoryError, setDirectoryError] = useState("");
+  const [expandedMemberId, setExpandedMemberId] = useState<number | null>(null);
+  const [previewsByMember, setPreviewsByMember] = useState<
+    Record<number, AdminMemberPreview[]>
+  >({});
+  const [previewLoadingMemberId, setPreviewLoadingMemberId] = useState<number | null>(null);
+  const [previewError, setPreviewError] = useState("");
 
   const switchToAdminAccount = async () => {
     try {
@@ -284,6 +323,25 @@ export default function AdminMembers() {
     }
     downloadCsv(members);
     toast.success(`已匯出 ${members.length} 位會員的 CSV 檔案。`);
+  };
+
+  const toggleMemberPreviews = async (member: AdminMember) => {
+    if (expandedMemberId === member.id) {
+      setExpandedMemberId(null);
+      return;
+    }
+    setExpandedMemberId(member.id);
+    setPreviewError("");
+    if (previewsByMember[member.id]) return;
+    setPreviewLoadingMemberId(member.id);
+    try {
+      const result = await getAdminMemberPreviews(member.id);
+      setPreviewsByMember(current => ({ ...current, [member.id]: result.items }));
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : "會員預覽資料暫時無法讀取。");
+    } finally {
+      setPreviewLoadingMemberId(null);
+    }
   };
 
   return (
@@ -459,7 +517,7 @@ export default function AdminMembers() {
                       <span>管理員限定 · 不顯示會員 openId</span>
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="min-w-[1030px] w-full border-collapse text-left">
+                      <table className="min-w-[1160px] w-full border-collapse text-left">
                         <thead className="bg-black/20 text-[0.58rem] font-bold tracking-[0.14em] text-white/42">
                           <tr>
                             <th className="px-5 py-4">會員</th>
@@ -468,13 +526,14 @@ export default function AdminMembers() {
                             <th className="px-4 py-4">最近登入</th>
                             <th className="px-4 py-4 text-right">AI 預覽</th>
                             <th className="px-5 py-4 text-right">曾保存</th>
+                            <th className="px-5 py-4 text-right">查看內容</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/8 text-sm">
                           {directoryLoading && !directory ? (
                             <tr>
                               <td
-                                colSpan={6}
+                                colSpan={7}
                                 className="px-5 py-12 text-center text-white/52"
                               >
                                 正在讀取會員 CRM…
@@ -483,7 +542,7 @@ export default function AdminMembers() {
                           ) : members.length === 0 ? (
                             <tr>
                               <td
-                                colSpan={6}
+                                colSpan={7}
                                 className="px-5 py-12 text-center text-white/52"
                               >
                                 {activeSearch
@@ -493,10 +552,8 @@ export default function AdminMembers() {
                             </tr>
                           ) : (
                             members.map(member => (
-                              <tr
-                                key={member.id}
-                                className="transition-colors hover:bg-white/[0.025]"
-                              >
+                              <Fragment key={member.id}>
+                              <tr className="transition-colors hover:bg-white/[0.025]">
                                 <td className="px-5 py-4">
                                   <p className="font-semibold text-white">
                                     {displayName(member)}
@@ -522,7 +579,70 @@ export default function AdminMembers() {
                                 <td className="px-5 py-4 text-right font-display text-2xl text-[#a9ff44]">
                                   {member.savedPreviewCount}
                                 </td>
+                                <td className="px-5 py-4 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => void toggleMemberPreviews(member)}
+                                    className="inline-flex items-center gap-2 border border-[#a9ff44]/45 bg-[#a9ff44]/8 px-3 py-2 text-xs font-bold tracking-[0.08em] text-[#a9ff44] transition-colors hover:bg-[#a9ff44] hover:text-[#10130a]"
+                                  >
+                                    {previewLoadingMemberId === member.id ? <RefreshCcw size={13} className="animate-spin" /> : expandedMemberId === member.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                    {expandedMemberId === member.id ? "收起" : "查看預覽"}
+                                  </button>
+                                </td>
                               </tr>
+                              {expandedMemberId === member.id && (
+                                <tr>
+                                  <td colSpan={7} className="border-t border-[#a9ff44]/20 bg-[#0b0d0a] px-5 py-6">
+                                    {previewLoadingMemberId === member.id ? (
+                                      <p className="text-sm text-white/55">正在載入這位會員的預覽圖與配置…</p>
+                                    ) : previewError ? (
+                                      <div className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-amber-300 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+                                        <span>{previewError}</span>
+                                        <button type="button" onClick={() => { setPreviewsByMember(current => { const next = { ...current }; delete next[member.id]; return next; }); setPreviewError(""); void toggleMemberPreviews(member); }} className="border border-amber-200/50 px-3 py-2 text-xs font-bold">再試一次</button>
+                                      </div>
+                                    ) : (previewsByMember[member.id] ?? []).length === 0 ? (
+                                      <div className="flex items-center gap-3 text-sm text-white/50"><ImageOff size={20} className="text-white/35" />這位會員目前沒有已保存的 AI 預覽。</div>
+                                    ) : (
+                                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                        {(previewsByMember[member.id] ?? []).map(preview => (
+                                          <article key={preview.id} className="overflow-hidden border border-white/12 bg-[#11130f]">
+                                            <div className="grid grid-cols-2 gap-px bg-white/10">
+                                              <div className="relative aspect-[4/3] bg-black/30">
+                                                {preview.originalImageUrl ? <img src={preview.originalImageUrl} alt={`${displayName(member)} 原始車照`} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center text-white/30"><ImageOff size={22} /></div>}
+                                                <span className="absolute left-2 top-2 bg-black/70 px-2 py-1 text-[0.55rem] font-bold tracking-[0.1em] text-white/75">原始車照</span>
+                                              </div>
+                                              <div className="relative aspect-[4/3] bg-black/30">
+                                                <img src={preview.previewUrl} alt={`${displayName(member)} ${preview.pantoneId} 預覽`} className="h-full w-full object-cover" loading="lazy" />
+                                                <span className="absolute left-2 top-2 bg-[#a9ff44] px-2 py-1 text-[0.55rem] font-bold tracking-[0.1em] text-[#10130a]">AI 預覽</span>
+                                              </div>
+                                            </div>
+                                            <div className="space-y-3 p-4">
+                                              <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                  <p className="text-[0.58rem] font-bold tracking-[0.14em] text-[#a9ff44]">COLOR / CONFIGURATION</p>
+                                                  <p className="mt-2 font-display text-2xl text-white">{preview.pantoneId}</p>
+                                                  <p className="mt-1 text-sm text-white/70">{displayPreviewColor(preview)}</p>
+                                                  {preview.catalogColor && <p className="mt-1 text-xs text-white/42">{preview.catalogColor.category} · {preview.catalogColor.categoryEn}</p>}
+                                                </div>
+                                                {preview.catalogColor?.swatch && <span className="h-9 w-9 shrink-0 border border-white/20" style={{ backgroundColor: preview.catalogColor.swatch }} title="型錄近似色" />}
+                                              </div>
+                                              <div className="border-t border-white/10 pt-3">
+                                                <div className="flex items-start gap-2 text-xs leading-5 text-white/65"><Settings2 size={14} className="mt-0.5 shrink-0 text-[#a9ff44]" /><span>{displayPreviewConfiguration(preview)}</span></div>
+                                                <p className="mt-2 text-xs text-white/42">{formatDate(preview.createdAt)} · {preview.outputSize || preview.aspectRatio}</p>
+                                              </div>
+                                              <div className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                                                <a href={preview.previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 border border-white/20 px-2 py-1.5 text-[0.62rem] font-bold text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"><ExternalLink size={12} />開啟生成圖</a>
+                                                {preview.originalImageUrl && <a href={preview.originalImageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 border border-white/20 px-2 py-1.5 text-[0.62rem] font-bold text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"><ExternalLink size={12} />開啟原圖</a>}
+                                              </div>
+                                            </div>
+                                          </article>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                              </Fragment>
                             ))
                           )}
                         </tbody>

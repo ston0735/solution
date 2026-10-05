@@ -1,3 +1,5 @@
+import type { PreviewHistoryItem } from "./memberHistory";
+
 export type AdminMember = {
   id: number;
   name: string | null;
@@ -8,6 +10,8 @@ export type AdminMember = {
   previewCount: number;
   savedPreviewCount: number;
 };
+
+export type AdminMemberPreview = PreviewHistoryItem;
 
 export type AdminMemberDirectory = {
   summary: {
@@ -53,4 +57,18 @@ export async function getAdminMemberDirectory(search = "") {
     );
   }
   return (await response.json()) as AdminMemberDirectory;
+}
+
+export async function getAdminMemberPreviews(memberId: number) {
+  const response = await fetch(`/api/admin/members/${memberId}/previews`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new AdminMemberDirectoryError(
+      await readError(response, "這位會員的預覽資料暫時無法讀取。"),
+      response.status,
+    );
+  }
+  return (await response.json()) as { items: AdminMemberPreview[] };
 }
