@@ -1,40 +1,23 @@
-import { OAUTH_STATE_COOKIE, encodeOAuthState } from "@shared/const";
-
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
-// These are public OAuth application values, not secrets. The Manus-hosted
-// version injects them at build time; keep the fallback so an external static
-// deployment (such as Vercel) still opens the same sign-in flow when its
-// VITE_* variables are not configured.
-const PUBLIC_OAUTH_PORTAL_URL = "https://manus.im";
-const PUBLIC_APP_ID = "RmvW9wQmUck52GnCFFpc6R";
+// The OAuth application only permits the Manus-hosted backend callback. The
+// backend relays the authenticated session back to external static frontends.
+const PUBLIC_OAUTH_CALLBACK_ORIGIN =
+  "https://solauto1care-rmvw9wqm.manus.space";
 
 // Start the Manus OAuth login. Call this from an event handler or effect at the
 // moment you want to navigate, e.g. `onClick={() => startLogin()}`.
 //
-// It has SIDE EFFECTS — it mints a one-time nonce, writes the __Host- state
-// cookie, and navigates immediately — so the cookie nonce always matches the
-// `state` it sends. Do NOT call it during render (no `href={startLogin()}` /
-// `loginUrl={...}`): each call overwrites the cookie, so a stray render-phase
-// call would desync it from an in-flight login and the callback would reject it
-// with "invalid oauth state". It returns void by design, so there is no URL to
-// stash across renders.
+// It has a SIDE EFFECT — it navigates immediately. Do NOT call it during render
+// (no `href={startLogin()}` / `loginUrl={...}`); the backend creates the
+// one-time nonce and state cookie immediately before redirecting to OAuth.
 export const startLogin = () => {
-  const oauthPortalUrl = (
-    import.meta.env.VITE_OAUTH_PORTAL_URL || PUBLIC_OAUTH_PORTAL_URL
+  const callbackOrigin = (
+    import.meta.env.VITE_OAUTH_CALLBACK_ORIGIN || PUBLIC_OAUTH_CALLBACK_ORIGIN
   ).replace(/\/$/, "");
-  const appId = import.meta.env.VITE_APP_ID || PUBLIC_APP_ID;
-  const redirectUri = `${window.location.origin}/api/oauth/callback`;
-
-  const nonce = crypto.randomUUID();
-  document.cookie = `${OAUTH_STATE_COOKIE}=${nonce}; Path=/; Max-Age=600; SameSite=None; Secure`;
-  const state = encodeOAuthState({ redirectUri, nonce });
-
-  const url = new URL(`${oauthPortalUrl}/app-auth`);
-  url.searchParams.set("appId", appId);
-  url.searchParams.set("redirectUri", redirectUri);
-  url.searchParams.set("state", state);
-  url.searchParams.set("type", "signIn");
+  const returnUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+  const url = new URL(`${callbackOrigin}/api/oauth/start`);
+  url.searchParams.set("returnUrl", returnUrl);
 
   window.location.href = url.toString();
 };

@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { COOKIE_NAME, UNAUTHED_ERR_MSG } from '@shared/const';
+import { COOKIE_NAME, UNAUTHED_ERR_MSG } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
@@ -7,6 +7,29 @@ import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
+
+const consumeOAuthRelay = () => {
+  if (typeof window === "undefined" || !window.location.hash) return;
+
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const cookie = params.get("manus-cookie");
+  const expectedPrefix = `${COOKIE_NAME}=`;
+  if (!cookie || !cookie.startsWith(expectedPrefix)) return;
+  if (!new RegExp(`^${COOKIE_NAME}=[A-Za-z0-9._-]+$`).test(cookie)) return;
+
+  try {
+    sessionStorage.setItem("manus-cookie", cookie);
+    window.history.replaceState(
+      null,
+      document.title,
+      `${window.location.pathname}${window.location.search}`
+    );
+  } catch {
+    // sessionStorage unavailable; the regular cookie flow may still work.
+  }
+};
+
+consumeOAuthRelay();
 
 const queryClient = new QueryClient();
 
