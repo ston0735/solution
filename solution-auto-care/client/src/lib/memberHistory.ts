@@ -1,18 +1,29 @@
 export type PreviewHistoryItem = {
   id: number;
   previewUrl: string;
+  originalImageUrl: string | null;
   pantoneId: string;
   aspectRatio: string;
   outputSize?: string | null;
   partialWrapCustomizations: Array<{ part?: string; finish?: string }>;
   createdAt: string;
+  retentionDays: number;
+  expiresAt: string;
+  isSaved: boolean;
 };
 
 type HistoryResponse = {
   items: PreviewHistoryItem[];
 };
 
-type CreateHistoryInput = Omit<PreviewHistoryItem, "id" | "createdAt">;
+type CreateHistoryInput = {
+  previewUrl: string;
+  originalImageDataUrl: string;
+  pantoneId: string;
+  aspectRatio: string;
+  outputSize?: string | null;
+  partialWrapCustomizations: Array<{ part?: string; finish?: string }>;
+};
 
 async function readError(response: Response, fallback: string) {
   try {
@@ -34,7 +45,7 @@ export async function listMemberPreviewHistory() {
   return (await response.json()) as HistoryResponse;
 }
 
-export async function saveMemberPreviewHistory(input: CreateHistoryInput) {
+export async function createMemberPreviewHistory(input: CreateHistoryInput) {
   const response = await fetch("/api/member-history", {
     method: "POST",
     credentials: "include",
@@ -43,6 +54,18 @@ export async function saveMemberPreviewHistory(input: CreateHistoryInput) {
   });
   if (!response.ok) {
     throw new Error(await readError(response, "預覽歷史暫時無法保存。"));
+  }
+  return response.json() as Promise<{ item: PreviewHistoryItem }>;
+}
+
+export async function saveMemberPreviewHistory(id: number) {
+  const response = await fetch(`/api/member-history/${id}/save`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "圖片保存期限暫時無法更新。"));
   }
   return response.json() as Promise<{ item: PreviewHistoryItem }>;
 }

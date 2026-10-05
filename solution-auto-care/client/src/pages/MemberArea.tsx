@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { startLogin } from "@/const";
+import ABCompare from "@/components/ABCompare";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
   listMemberPreviewHistory,
@@ -145,7 +146,7 @@ function MemberIntro() {
           </button>
           <p className="mt-4 max-w-lg text-xs leading-5 text-white/42">
             登入後，每次完成的 AI
-            車色預覽會自動保存到「預覽歷史」；目前保存的是生成結果，原始上傳車照不會留存。
+            車色預覽會與原始車照成對保存到「預覽歷史」，可使用 A｜B 比較。
           </p>
         </div>
 
@@ -213,6 +214,7 @@ function MemberDashboard({
   onRetryHistory: () => void;
 }) {
   const previewCount = history.length >= 50 ? "50+" : String(history.length);
+  const [compareHistoryId, setCompareHistoryId] = useState<number | null>(null);
 
   return (
     <main>
@@ -405,11 +407,11 @@ function MemberDashboard({
             </div>
             <div className="max-w-sm text-sm leading-6 text-white/50">
               <p>
-                每次登入會員後完成的 AI
-                車色預覽都會自動保存到這裡，最新結果會排在最前面。
+                每次登入會員後完成的 AI 車色預覽會先暫存 3
+                天；按下圖片上的「儲存圖片」後，保存期限延長為 30 天。
               </p>
               <p className="mt-2 text-xs text-white/35">
-                保存生成圖片與色號資訊；原始上傳車照目前不會留存。
+                原始車照與生成結果會同步保存；兩者遵循相同的 3 天／30 天期限。
               </p>
             </div>
           </div>
@@ -462,14 +464,28 @@ function MemberDashboard({
                     className="relative overflow-hidden bg-[#070807]"
                     style={{ aspectRatio: item.aspectRatio.replace(":", " /") }}
                   >
-                    <img
-                      src={item.previewUrl}
-                      alt={`${item.pantoneId} AI 車色預覽`}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    {compareHistoryId === item.id && item.originalImageUrl ? (
+                      <ABCompare
+                        beforeUrl={item.originalImageUrl}
+                        afterUrl={item.previewUrl}
+                        beforeLabel="A ORIGINAL"
+                        afterLabel="B AI PREVIEW"
+                        alt={`${item.pantoneId} 原圖與 AI 預覽比較`}
+                        className="absolute inset-0"
+                      />
+                    ) : (
+                      <img
+                        src={item.previewUrl}
+                        alt={`${item.pantoneId} AI 車色預覽`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    )}
                     <span className="absolute left-3 top-3 border border-[#a9ff44]/60 bg-black/65 px-2 py-1 text-[0.56rem] font-bold tracking-[0.12em] text-[#a9ff44] backdrop-blur-sm">
                       {item.pantoneId}
+                    </span>
+                    <span className="absolute right-3 top-3 border border-white/25 bg-black/65 px-2 py-1 text-[0.56rem] font-bold tracking-[0.08em] text-white/75 backdrop-blur-sm">
+                      {item.isSaved ? "已保存 30 天" : "暫存 3 天"}
                     </span>
                   </div>
                   <div className="p-4">
@@ -496,11 +512,27 @@ function MemberDashboard({
                       輸出比例：{item.aspectRatio}
                       {item.outputSize ? ` · ${item.outputSize}` : ""}
                     </p>
+                    <p className="mt-2 text-xs text-white/40">
+                      保存至：{formatHistoryDate(item.expiresAt)}
+                    </p>
                     {item.partialWrapCustomizations.length > 0 && (
                       <p className="mt-2 text-xs text-[#a9ff44]/75">
                         已包含 {item.partialWrapCustomizations.length}{" "}
                         項局部包膜設定
                       </p>
+                    )}
+                    {item.originalImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCompareHistoryId(current =>
+                            current === item.id ? null : item.id
+                          )
+                        }
+                        className={`mt-4 flex items-center gap-2 border px-3 py-2 text-xs font-bold tracking-[0.08em] transition-colors ${compareHistoryId === item.id ? "border-[#a9ff44] bg-[#a9ff44]/15 text-[#a9ff44]" : "border-white/20 text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"}`}
+                      >
+                        A｜B 比較
+                      </button>
                     )}
                   </div>
                 </article>
