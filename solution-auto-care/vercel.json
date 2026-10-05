@@ -16,6 +16,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/oauth/exchange",
+      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/oauth/exchange"
+    },
+    {
+      "source": "/api/trpc/auth.:path*",
+      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/trpc/auth.:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://solauto1care-rmvw9wqm.manus.space/api/:path*"
     },

@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { COOKIE_NAME, UNAUTHED_ERR_MSG } from "@shared/const";
+import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
@@ -8,28 +8,34 @@ import App from "./App";
 import { startLogin } from "./const";
 import "./index.css";
 
-const consumeOAuthRelay = () => {
+const consumeOAuthRelay = async () => {
   if (typeof window === "undefined" || !window.location.hash) return;
 
   const params = new URLSearchParams(window.location.hash.slice(1));
-  const cookie = params.get("manus-cookie");
-  const expectedPrefix = `${COOKIE_NAME}=`;
-  if (!cookie || !cookie.startsWith(expectedPrefix)) return;
-  if (!new RegExp(`^${COOKIE_NAME}=[A-Za-z0-9._-]+$`).test(cookie)) return;
+  const relayCode = params.get("manus-relay");
+  if (!relayCode || !/^[a-f0-9]{32}$/.test(relayCode)) return;
 
   try {
-    sessionStorage.setItem("manus-cookie", cookie);
+    const response = await fetch(
+      `/api/oauth/exchange?code=${encodeURIComponent(relayCode)}`,
+      {
+        cache: "no-store",
+        credentials: "include",
+      }
+    );
+    if (!response.ok) {
+      console.warn("[Auth] Login relay could not be exchanged");
+      return;
+    }
     window.history.replaceState(
       null,
       document.title,
       `${window.location.pathname}${window.location.search}`
     );
   } catch {
-    // sessionStorage unavailable; the regular cookie flow may still work.
+    console.warn("[Auth] Login relay could not be exchanged");
   }
 };
-
-consumeOAuthRelay();
 
 const queryClient = new QueryClient();
 
@@ -65,26 +71,6 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      headers() {
-        // Preview auto-login fallback: when the browser blocks iframe cookies
-        // (Safari ITP / private browsing / WebView), the runtime mirrors the
-        // session into sessionStorage so we can forward it as a Bearer token.
-        // The regular OAuth cookie flow keeps working and takes priority server-side.
-        try {
-          const raw = sessionStorage.getItem("manus-cookie");
-          if (raw) {
-            const prefix = `${COOKIE_NAME}=`;
-            const pair = raw.split(";").find(s => s.trim().startsWith(prefix));
-            const token = pair?.trim().slice(prefix.length);
-            if (token) {
-              return { Authorization: `Bearer ${token}` };
-            }
-          }
-        } catch {
-          // sessionStorage unavailable
-        }
-        return {};
-      },
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),
@@ -95,10 +81,12 @@ const trpcClient = trpc.createClient({
   ],
 });
 
-createRoot(document.getElementById("root")!).render(
-  <trpc.Provider client={trpcClient} queryClient={queryClient}>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </trpc.Provider>
-);
+void consumeOAuthRelay().finally(() => {
+  createRoot(document.getElementById("root")!).render(
+    <trpc.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </trpc.Provider>
+  );
+});
