@@ -791,7 +791,7 @@ export default function WrapColorPreview() {
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                 )}
-                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-4 bg-[linear-gradient(0deg,rgba(0,0,0,0.94),transparent)] px-5 pb-5 pt-20 sm:flex-row sm:items-end sm:justify-between">
+                <div className="absolute inset-x-0 bottom-0 z-40 flex flex-col gap-4 bg-[linear-gradient(0deg,rgba(0,0,0,0.94),transparent)] px-5 pb-5 pt-20 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-[0.62rem] font-bold tracking-[0.18em] text-[#a9ff44]">
                       CONCEPT PREVIEW GENERATED
