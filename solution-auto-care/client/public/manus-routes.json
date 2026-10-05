@@ -1,6 +1,7 @@
 {
   "routes": [
     { "path": "/", "title": "Solution｜汽車包膜、透明保護膜與 AI 車色預覽" },
-    { "path": "/member", "title": "Solution 會員專區" }
+    { "path": "/member", "title": "Solution 會員專區" },
+    { "path": "/admin/members", "title": "Solution CRM｜會員管理" }
   ]
 }

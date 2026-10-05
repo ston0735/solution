@@ -16,8 +16,8 @@
   ],
   "rewrites": [
     {
-      "source": "/api/oauth/exchange",
-      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/oauth/exchange"
+      "source": "/api/oauth/:path*",
+      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/oauth/:path*"
     },
     {
       "source": "/api/member-history",
@@ -26,6 +26,10 @@
     {
       "source": "/api/member-history/:path*",
       "destination": "https://solutionauth-zcgxwa4c.manus.space/api/member-history/:path*"
+    },
+    {
+      "source": "/api/admin/members",
+      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/admin/members"
     },
     {
       "source": "/api/trpc/auth.:path*",
@@ -41,6 +45,10 @@
     },
     {
       "source": "/member",
+      "destination": "/"
+    },
+    {
+      "source": "/admin/members",
       "destination": "/"
     }
   ]

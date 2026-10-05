@@ -75,9 +75,11 @@ const formatHistoryDate = (value: string) => {
 function MemberHeader({
   isAuthenticated,
   name,
+  isAdmin = false,
 }: {
   isAuthenticated: boolean;
   name: string;
+  isAdmin?: boolean;
 }) {
   return (
     <header className="border-b border-white/10 bg-[#0b0b0a]/94 backdrop-blur-xl">
@@ -98,6 +100,17 @@ function MemberHeader({
           </span>
         </button>
         <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = "/admin/members";
+              }}
+              className="hidden border border-[#a9ff44]/55 bg-[#a9ff44]/10 px-3 py-2 text-[0.59rem] font-bold tracking-[0.13em] text-[#a9ff44] transition-colors hover:bg-[#a9ff44] hover:text-[#10130a] sm:block"
+            >
+              CRM 後台
+            </button>
+          )}
           <span
             className={`hidden items-center gap-2 border px-3 py-2 text-[0.59rem] font-bold tracking-[0.13em] sm:flex ${isAuthenticated ? "border-[#a9ff44]/55 bg-[#a9ff44]/10 text-[#a9ff44]" : "border-white/15 text-white/45"}`}
           >
@@ -629,7 +642,11 @@ export default function MemberArea() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0b0b0a] text-[#f3f4ee]">
-      <MemberHeader isAuthenticated={isAuthenticated} name={displayName} />
+      <MemberHeader
+        isAuthenticated={isAuthenticated}
+        name={displayName}
+        isAdmin={user?.role === "admin"}
+      />
       {loading ? (
         <main className="flex min-h-[65vh] items-center justify-center px-5">
           <div className="border-l border-[#a9ff44] pl-5">
