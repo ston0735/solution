@@ -197,7 +197,8 @@ export const appRouter = router({
             materialReference && previewSignedUrl
               ? await measureColorConsistency(
                   materialReference.buffer,
-                  await loadImageBuffer(previewSignedUrl)
+                  await loadImageBuffer(previewSignedUrl),
+                  buffer
                 )
               : undefined;
           const colorReview =

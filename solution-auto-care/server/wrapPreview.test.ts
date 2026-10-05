@@ -67,6 +67,13 @@ describe("wrap preview validation", () => {
     );
   });
 
+  it("requires a clean image without UI text or graphic overlays", () => {
+    const prompt = buildWrapPreviewPrompt("SRG181");
+    expect(prompt).toContain("OUTPUT ONLY THE CLEAN EDITED PHOTOGRAPH");
+    expect(prompt).toContain("never render words, numbers, color codes, labels");
+    expect(prompt).toContain("Do not alter the license plate text");
+  });
+
   it("adds only selected partial parts with blackout or carbon-fiber finishes to the prompt", () => {
     const partialWraps = normalizePartialWrapCustomizations([
       { part: "mirrors", finish: "blackout" },

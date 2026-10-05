@@ -91,8 +91,49 @@ export async function measureDominantColor(image: Buffer): Promise<HsvColor> {
   };
 }
 
-export async function measureColorConsistency(referenceImage: Buffer, previewImage: Buffer): Promise<ColorMetricReport> {
-  const [reference, preview] = await Promise.all([measureDominantColor(referenceImage), measureDominantColor(previewImage)]);
+/** Measure changed vehicle pixels so matching background colors do not dominate hue checks. */
+export async function measureVehicleChangeColor(sourceImage: Buffer, previewImage: Buffer): Promise<HsvColor> {
+  const [source, preview] = await Promise.all([
+    sharp(sourceImage).rotate().resize({ width: 160, height: 120, fit: "fill" }).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(previewImage).rotate().resize({ width: 160, height: 120, fit: "fill" }).removeAlpha().raw().toBuffer({ resolveWithObject: true }),
+  ]);
+  const pixels: HsvColor[] = [];
+  const width = Math.min(source.info.width, preview.info.width);
+  const height = Math.min(source.info.height, preview.info.height);
+  const pixelCount = Math.min(source.data.length, preview.data.length) / 3;
+  for (let index = 0; index < pixelCount; index += 1) {
+    const offset = index * 3;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const changed = Math.sqrt(
+      (source.data[offset]! - preview.data[offset]!) ** 2
+      + (source.data[offset + 1]! - preview.data[offset + 1]!) ** 2
+      + (source.data[offset + 2]! - preview.data[offset + 2]!) ** 2,
+    ) / Math.sqrt(3 * 255 ** 2);
+    const color = rgbToHsv(preview.data[offset] ?? 0, preview.data[offset + 1] ?? 0, preview.data[offset + 2] ?? 0);
+    const centralVehicleArea = x >= width * 0.08 && x <= width * 0.92 && y >= height * 0.18;
+    if (centralVehicleArea && changed >= 0.12 && color.value > 0.12 && (color.saturation >= 0.1 || changed >= 0.22)) pixels.push(color);
+  }
+  if (pixels.length < 24) return measureDominantColor(previewImage);
+  const saturated = pixels.filter(color => color.saturation >= 0.2 && color.value >= 0.16);
+  const sample = saturated.length >= Math.max(16, pixels.length * 0.02) ? saturated : pixels;
+  const sine = weightedAverage(sample.map(color => ({ value: Math.sin(color.hue * Math.PI / 180), weight: Math.max(color.saturation, 0.12) * color.value })));
+  const cosine = weightedAverage(sample.map(color => ({ value: Math.cos(color.hue * Math.PI / 180), weight: Math.max(color.saturation, 0.12) * color.value })));
+  return {
+    hue: (Math.atan2(sine, cosine) * 180 / Math.PI + 360) % 360,
+    saturation: weightedAverage(sample.map(color => ({ value: color.saturation, weight: Math.max(color.value, 0.12) }))),
+    value: weightedAverage(sample.map(color => ({ value: color.value, weight: Math.max(color.saturation, 0.12) }))),
+    red: Math.round(weightedAverage(sample.map(color => ({ value: color.red, weight: Math.max(color.saturation, 0.12) * color.value })))),
+    green: Math.round(weightedAverage(sample.map(color => ({ value: color.green, weight: Math.max(color.saturation, 0.12) * color.value })))),
+    blue: Math.round(weightedAverage(sample.map(color => ({ value: color.blue, weight: Math.max(color.saturation, 0.12) * color.value })))),
+  };
+}
+
+export async function measureColorConsistency(referenceImage: Buffer, previewImage: Buffer, sourceImage?: Buffer): Promise<ColorMetricReport> {
+  const [reference, preview] = await Promise.all([
+    measureDominantColor(referenceImage),
+    sourceImage ? measureVehicleChangeColor(sourceImage, previewImage) : measureDominantColor(previewImage),
+  ]);
   const hueDelta = degreesBetween(reference.hue, preview.hue);
   const saturationDelta = Math.abs(reference.saturation - preview.saturation);
   const valueDelta = Math.abs(reference.value - preview.value);

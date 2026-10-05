@@ -16,6 +16,8 @@ import {
   type PartialWrapFinish,
   type PartialWrapPartId,
 } from "@shared/partialWrapOptions";
+import { getMaterialCardAssetPath } from "@shared/wrapAssetPaths";
+import { WRAP_COLOR_REFERENCE_KEYS } from "@shared/wrapColorReferenceKeys";
 import {
   AlertTriangle,
   Bookmark,
@@ -172,6 +174,12 @@ export default function WrapColorPreview() {
     () => (selectedColor ? getWrapColorPresentation(selectedColor) : undefined),
     [selectedColor]
   );
+  const selectedMaterialCardKey = selectedColor
+    ? WRAP_COLOR_REFERENCE_KEYS[selectedColor.code]
+    : undefined;
+  const selectedMaterialCardUrl = selectedMaterialCardKey
+    ? getMaterialCardAssetPath(selectedMaterialCardKey)
+    : "";
   const targetColorId = customColorId.trim() || selectedColor?.code || "";
   const catalogColorContext = useMemo(
     () =>
@@ -596,12 +604,20 @@ export default function WrapColorPreview() {
                 </select>
               </div>
               {selectedColor && selectedColorPresentation && (
-                <div className="mt-3 flex items-center gap-3 border border-white/10 bg-black/20 px-3 py-3">
-                  <span
-                    className="h-8 w-8 shrink-0 border border-white/20"
-                    style={{ backgroundColor: selectedColor.swatch }}
-                    aria-hidden="true"
-                  />
+                <div className="mt-3 flex items-center gap-4 border border-white/10 bg-black/20 p-3">
+                  {selectedMaterialCardUrl ? (
+                    <img
+                      src={selectedMaterialCardUrl}
+                      alt={`${selectedColor.code} 實體材質色卡預覽`}
+                      className="h-20 w-28 shrink-0 border border-white/20 object-cover shadow-[0_0_24px_rgba(169,255,68,0.08)]"
+                    />
+                  ) : (
+                    <span
+                      className="h-20 w-28 shrink-0 border border-white/20"
+                      style={{ backgroundColor: selectedColor.swatch }}
+                      aria-hidden="true"
+                    />
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xs font-semibold tracking-[0.08em] text-white">
@@ -773,148 +789,51 @@ export default function WrapColorPreview() {
             }
           >
             {generatedPreview ? (
-              <>
-                {compareMode && sourcePreview ? (
-                  <ABCompare
-                    key={generatedPreview}
-                    beforeUrl={sourcePreview}
-                    afterUrl={generatedPreview}
-                    beforeLabel="A ORIGINAL"
-                    afterLabel="B AI PREVIEW"
-                    alt="原始車照與 AI 車色預覽比較"
-                    className="absolute inset-0"
-                  />
-                ) : (
-                  <img
-                    src={generatedPreview}
-                    alt={`以 ${generatedColorId} 為目標色號的 AI 車色包膜概念預覽`}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
-                <div className="absolute inset-x-0 bottom-0 z-40 flex flex-col gap-4 bg-[linear-gradient(0deg,rgba(0,0,0,0.94),transparent)] px-5 pb-5 pt-20 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-[0.62rem] font-bold tracking-[0.18em] text-[#a9ff44]">
-                      CONCEPT PREVIEW GENERATED
-                    </p>
-                    <p className="mt-2 text-sm text-white/80">
-                      目標色號：{generatedColorId}
-                    </p>
-                    {generatedAspectRatio && (
-                      <p className="mt-1 text-xs text-white/55">
-                        輸出比例：{generatedAspectRatio}
-                        {generatedOutputSize ? ` · ${generatedOutputSize}` : ""}
-                      </p>
-                    )}
-                    {isAuthenticated && historyId && (
-                      <p className="mt-2 text-[0.65rem] text-white/45">
-                        {historyIsSaved
-                          ? "已保存 30 天"
-                          : "目前暫存 3 天，按下「儲存圖片」可延長至 30 天"}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => setCompareMode(current => !current)}
-                      disabled={!sourcePreview || isGenerating}
-                      className={`flex items-center gap-2 border px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${compareMode ? "border-[#a9ff44] bg-[#a9ff44]/15 text-[#a9ff44]" : "border-white/35 bg-black/55 text-white hover:border-[#a9ff44] hover:text-[#a9ff44]"}`}
-                    >
-                      A｜B 比較
-                    </button>
-                    {isAuthenticated && historyId && (
-                      <button
-                        type="button"
-                        onClick={() => void handleSavePreview()}
-                        disabled={
-                          historyIsSaved || historySaving || isGenerating
-                        }
-                        className={`flex items-center gap-2 px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${historyIsSaved ? "border border-[#a9ff44]/60 bg-[#a9ff44]/15 text-[#a9ff44]" : "bg-[#a9ff44] text-[#10130a] hover:bg-white"}`}
-                      >
-                        {historyIsSaved ? (
-                          <BookmarkCheck size={14} />
-                        ) : (
-                          <Bookmark size={14} />
-                        )}
-                        {historySaving
-                          ? "保存中…"
-                          : historyIsSaved
-                            ? "已保存 30 天"
-                            : "儲存圖片"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleDownloadPreview}
-                      disabled={isGenerating}
-                      className="flex items-center gap-2 border border-white/35 bg-black/55 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"
-                    >
-                      <Download size={14} />
-                      下載圖片
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        generatePreview.mutate(getGenerationInput())
-                      }
-                      disabled={isGenerating}
-                      className="flex items-center gap-2 border border-white/25 bg-black/45 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"
-                    >
-                      <RefreshCcw size={14} />
-                      重新生成
-                    </button>
-                  </div>
+              <div className="flex min-h-full flex-col">
+                <div className="relative min-h-[440px] flex-1 bg-[#050505] sm:min-h-[560px]">
+                  {compareMode && sourcePreview ? (
+                    <ABCompare
+                      key={generatedPreview}
+                      beforeUrl={sourcePreview}
+                      afterUrl={generatedPreview}
+                      beforeLabel="A ORIGINAL"
+                      afterLabel="B AI PREVIEW"
+                      alt="原始車照與 AI 車色預覽比較"
+                      className="absolute inset-0"
+                    />
+                  ) : (
+                    <img
+                      src={generatedPreview}
+                      alt={`以 ${generatedColorId} 為目標色號的 AI 車色包膜概念預覽`}
+                      className="absolute inset-0 h-full w-full object-contain"
+                    />
+                  )}
                 </div>
-                {generatedPartialWrapCustomizations.length > 0 && (
-                  <p className="absolute left-5 top-5 max-w-[calc(100%-2.5rem)] border-l-2 border-[#a9ff44] bg-black/55 px-3 py-2 text-[0.62rem] font-semibold leading-5 tracking-[0.06em] text-white/86 backdrop-blur-sm">
-                    PARTIAL WRAP ／{" "}
-                    {generatedPartialWrapCustomizations
-                      .map(
-                        item =>
-                          `${PARTIAL_WRAP_PARTS[item.part].label}・${PARTIAL_WRAP_FINISHES[item.finish].label}`
-                      )
-                      .join("  |  ")}
-                  </p>
-                )}
-                {generatedMaterialReferenceUrl && (
-                  <div className="absolute right-5 top-5 max-w-[calc(100%-2.5rem)] border border-white/20 bg-black/65 p-2 backdrop-blur-sm">
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={generatedMaterialReferenceUrl}
-                        alt={`${generatedColorId} 的 PDF 原始材質色卡`}
-                        className="h-11 w-16 shrink-0 object-cover"
-                      />
-                      <div>
-                        <p className="text-[0.55rem] font-bold tracking-[0.12em] text-[#a9ff44]">
-                          PDF MATERIAL CARD
-                        </p>
-                        <p className="mt-1 text-[0.65rem] text-white/78">
-                          實體色卡參考已啟用
-                        </p>
-                      </div>
+                <div className="border-t border-white/15 bg-[#11120f] p-5 sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-[0.62rem] font-bold tracking-[0.18em] text-[#a9ff44]">CONCEPT PREVIEW GENERATED</p>
+                      <p className="mt-2 text-sm text-white/80">目標色號：{generatedColorId}</p>
+                      {generatedAspectRatio && <p className="mt-1 text-xs text-white/55">輸出比例：{generatedAspectRatio}{generatedOutputSize ? ` · ${generatedOutputSize}` : ""}</p>}
+                      {generatedPartialWrapCustomizations.length > 0 && <p className="mt-2 text-xs leading-5 text-white/58">局部包膜：{generatedPartialWrapCustomizations.map(item => `${PARTIAL_WRAP_PARTS[item.part].label}・${PARTIAL_WRAP_FINISHES[item.finish].label}`).join("、")}</p>}
+                      {isAuthenticated && historyId && <p className="mt-2 text-[0.65rem] text-white/45">{historyIsSaved ? "已保存 30 天" : "目前暫存 3 天，按下「儲存圖片」可延長至 30 天"}</p>}
                     </div>
-                    <p className="mt-2 max-w-[205px] border-t border-white/10 pt-2 text-[0.58rem] leading-4 text-white/58">
-                      請先比對色卡與車身主色；如明顯偏離，可按下方「重新生成」再次以同一色卡校正。
-                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button type="button" onClick={() => setCompareMode(current => !current)} disabled={!sourcePreview || isGenerating} className={`flex items-center gap-2 border px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${compareMode ? "border-[#a9ff44] bg-[#a9ff44]/15 text-[#a9ff44]" : "border-white/35 bg-black/55 text-white hover:border-[#a9ff44] hover:text-[#a9ff44]"}`}>A｜B 比較</button>
+                      {isAuthenticated && historyId && <button type="button" onClick={() => void handleSavePreview()} disabled={historyIsSaved || historySaving || isGenerating} className={`flex items-center gap-2 px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${historyIsSaved ? "border border-[#a9ff44]/60 bg-[#a9ff44]/15 text-[#a9ff44]" : "bg-[#a9ff44] text-[#10130a] hover:bg-white"}`}>{historyIsSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}{historySaving ? "保存中…" : historyIsSaved ? "已保存 30 天" : "儲存圖片"}</button>}
+                      <button type="button" onClick={handleDownloadPreview} disabled={isGenerating} className="flex items-center gap-2 border border-white/35 bg-black/55 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"><Download size={14} />下載圖片</button>
+                      <button type="button" onClick={() => generatePreview.mutate(getGenerationInput())} disabled={isGenerating} className="flex items-center gap-2 border border-white/25 bg-black/45 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"><RefreshCcw size={14} />重新生成</button>
+                    </div>
                   </div>
-                )}
-                <div className="absolute bottom-20 left-5 max-w-[min(420px,calc(100%-2.5rem))] space-y-2">
-                  {generatedColorMetrics && (
-                    <p
-                      className={`border-l-2 px-3 py-2 text-xs leading-5 backdrop-blur-sm ${generatedColorMetrics.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/55 text-white/78"}`}
-                    >
-                      {generatedColorMetrics.message}
-                    </p>
-                  )}
-                  {generatedColorReview && (
-                    <p
-                      className={`border-l-2 px-3 py-2 text-xs leading-5 backdrop-blur-sm ${generatedColorReview.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/55 text-white/78"}`}
-                    >
-                      {generatedColorReview.message}
-                    </p>
-                  )}
+                  <div className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-[minmax(0,1fr)_minmax(200px,0.55fr)]">
+                    <div className="space-y-2">
+                      {generatedColorMetrics && <p className={`border-l-2 px-3 py-2 text-xs leading-5 ${generatedColorMetrics.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/35 text-white/78"}`}>{generatedColorMetrics.message}</p>}
+                      {generatedColorReview && <p className={`border-l-2 px-3 py-2 text-xs leading-5 ${generatedColorReview.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/35 text-white/78"}`}>{generatedColorReview.message}</p>}
+                    </div>
+                    {generatedMaterialReferenceUrl && <div className="border border-white/15 bg-black/25 p-3"><div className="flex items-center gap-3"><img src={generatedMaterialReferenceUrl} alt={`${generatedColorId} 的 PDF 原始材質色卡`} className="h-20 w-28 shrink-0 object-cover" /><div><p className="text-[0.55rem] font-bold tracking-[0.12em] text-[#a9ff44]">PDF MATERIAL CARD</p><p className="mt-1 text-[0.68rem] leading-5 text-white/72">實體色卡參考已啟用</p></div></div><p className="mt-3 border-t border-white/10 pt-3 text-xs leading-5 text-white/55">請在圖片外側對照色卡與車身主色；如明顯偏離，可重新生成。</p></div>}
+                  </div>
                 </div>
-              </>
+              </div>
             ) : isGenerating ? (
               <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
                 <div className="relative flex h-28 w-28 items-center justify-center border border-[#a9ff44]/40">
