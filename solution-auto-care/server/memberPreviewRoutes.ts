@@ -11,6 +11,7 @@ import {
 import { sdk } from "./_core/sdk";
 import { storagePut } from "./storage";
 import type { MemberPreviewHistory } from "../drizzle/schema";
+import { recognizeVehicleModel } from "./vehicleRecognition";
 
 const catalogColorSchema = z.object({
   code: z.string().min(2).max(48),
@@ -85,6 +86,13 @@ export function serializeMemberPreviewHistory(item: MemberPreviewHistory) {
     previewUrl: item.previewUrl,
     originalImageUrl: item.originalImageUrl,
     vehicleModel: item.vehicleModel,
+    vehicleModelAi: item.vehicleModelAi,
+    vehicleModelAiConfidence: item.vehicleModelAiConfidence,
+    vehicleModelAiSource: item.vehicleModelAiSource,
+    vehicleModelAiCandidates: parseMemberPreviewJson(
+      item.vehicleModelAiCandidatesJson,
+      [],
+    ),
     pantoneId: item.pantoneId,
     catalogColor: parseMemberPreviewJson(item.catalogColorJson, null),
     aspectRatio: item.aspectRatio,
@@ -156,11 +164,20 @@ export function registerMemberPreviewRoutes(app: Express) {
         original.buffer,
         original.mimeType,
       );
+      const vehicleRecognition = await recognizeVehicleModel(
+        parsed.data.originalImageDataUrl,
+      );
       const created = await createMemberPreviewHistory({
         userId: user.id,
         previewUrl: parsed.data.previewUrl,
         originalImageUrl: uploaded.url,
         vehicleModel: parsed.data.vehicleModel?.trim() || null,
+        vehicleModelAi: vehicleRecognition.vehicleModelAi,
+        vehicleModelAiConfidence: vehicleRecognition.vehicleModelAiConfidence,
+        vehicleModelAiSource: vehicleRecognition.vehicleModelAiSource,
+        vehicleModelAiCandidatesJson: JSON.stringify(
+          vehicleRecognition.vehicleModelAiCandidates,
+        ),
         pantoneId: parsed.data.pantoneId,
         catalogColorJson: parsed.data.catalogColor
           ? JSON.stringify(parsed.data.catalogColor)

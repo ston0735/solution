@@ -3,6 +3,10 @@ export type PreviewHistoryItem = {
   previewUrl: string;
   originalImageUrl: string | null;
   vehicleModel: string | null;
+  vehicleModelAi: string | null;
+  vehicleModelAiConfidence: number;
+  vehicleModelAiSource: "ai" | "manual_review" | "pending" | "unavailable";
+  vehicleModelAiCandidates: Array<{ label: string; confidence: number }>;
   pantoneId: string;
   catalogColor: {
     code: string;

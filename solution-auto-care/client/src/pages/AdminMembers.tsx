@@ -785,6 +785,20 @@ export default function AdminMembers() {
                                                   <p className="mt-1 text-sm text-white/70">{displayPreviewColor(preview)}</p>
                                                   {preview.catalogColor && <p className="mt-1 text-xs text-white/42">{preview.catalogColor.category} · {preview.catalogColor.categoryEn}</p>}
                                                   {preview.vehicleModel && <p className="mt-2 text-xs text-white/55">車款：{preview.vehicleModel}</p>}
+                                                  <div className="mt-3 border-l-2 border-[#a9ff44]/65 bg-[#a9ff44]/6 px-3 py-2">
+                                                    <p className="text-[0.58rem] font-bold tracking-[0.12em] text-[#a9ff44]">AI VEHICLE IDENTIFICATION</p>
+                                                    <p className="mt-1 text-sm text-white/85">
+                                                      {preview.vehicleModelAi ?? "待人工確認／無法可靠辨識"}
+                                                    </p>
+                                                    <p className="mt-1 text-[0.62rem] text-white/45">
+                                                      {preview.vehicleModelAiSource === "ai" ? "AI 高信心辨識" : "AI 輔助結果，請人工覆核"} · 信心 {preview.vehicleModelAiConfidence}%
+                                                    </p>
+                                                    {preview.vehicleModelAiCandidates.length > 0 && preview.vehicleModelAiSource !== "ai" && (
+                                                      <p className="mt-1 text-[0.62rem] leading-5 text-white/42">
+                                                        候選：{preview.vehicleModelAiCandidates.map(candidate => `${candidate.label}（${candidate.confidence}%）`).join("、")}
+                                                      </p>
+                                                    )}
+                                                  </div>
                                                 </div>
                                                 {preview.catalogColor?.swatch && <span className="h-9 w-9 shrink-0 border border-white/20" style={{ backgroundColor: preview.catalogColor.swatch }} title="型錄近似色" />}
                                               </div>
