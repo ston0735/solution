@@ -32,6 +32,10 @@
       "destination": "https://solutionauth-zcgxwa4c.manus.space/api/admin/members"
     },
     {
+      "source": "/api/admin/members/:path*",
+      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/admin/members/:path*"
+    },
+    {
       "source": "/api/trpc/auth.:path*",
       "destination": "https://solutionauth-zcgxwa4c.manus.space/api/trpc/auth.:path*"
     },
