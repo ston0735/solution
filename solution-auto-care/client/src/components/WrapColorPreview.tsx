@@ -32,9 +32,75 @@ import { toast } from "sonner";
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
 
+type ImageDimensions = {
+  width: number;
+  height: number;
+};
+
 function formatColorLabel(color: WrapColor) {
   const name = color.nameZh || color.name;
   return name ? `${color.code} · ${name}` : color.code;
+}
+
+function getAspectRatioLabel({ width, height }: ImageDimensions) {
+  const greatestCommonDivisor = (a: number, b: number): number =>
+    b === 0 ? a : greatestCommonDivisor(b, a % b);
+  const divisor = greatestCommonDivisor(width, height);
+  return `${width / divisor}:${height / divisor}`;
+}
+
+async function loadImage(source: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("預覽圖片讀取失敗"));
+    image.src = source;
+  });
+}
+
+async function cropPreviewToSourceAspectRatio(
+  previewUrl: string,
+  source: ImageDimensions
+) {
+  const preview = await loadImage(previewUrl);
+  const targetAspectRatio = source.width / source.height;
+  const previewAspectRatio = preview.naturalWidth / preview.naturalHeight;
+  const cropWidth =
+    previewAspectRatio > targetAspectRatio
+      ? preview.naturalHeight * targetAspectRatio
+      : preview.naturalWidth;
+  const cropHeight =
+    previewAspectRatio > targetAspectRatio
+      ? preview.naturalHeight
+      : preview.naturalWidth / targetAspectRatio;
+  const cropLeft = (preview.naturalWidth - cropWidth) / 2;
+  const cropTop = (preview.naturalHeight - cropHeight) / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(cropWidth);
+  canvas.height = Math.round(cropHeight);
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("預覽圖片無法轉換");
+
+  context.drawImage(
+    preview,
+    cropLeft,
+    cropTop,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  const blob = await new Promise<Blob | null>(resolve =>
+    canvas.toBlob(resolve, "image/png")
+  );
+  if (!blob) throw new Error("預覽圖片無法轉換");
+  return {
+    previewUrl: URL.createObjectURL(blob),
+    outputSize: `${canvas.width}x${canvas.height}`,
+  };
 }
 
 export default function WrapColorPreview() {
@@ -50,6 +116,8 @@ export default function WrapColorPreview() {
   const [customColorId, setCustomColorId] = useState("");
   const [sourcePreview, setSourcePreview] = useState("");
   const [imageBase64, setImageBase64] = useState("");
+  const [sourceDimensions, setSourceDimensions] =
+    useState<ImageDimensions | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState("");
   const [generatedColorId, setGeneratedColorId] = useState("");
   const [generatedMaterialReferenceUrl, setGeneratedMaterialReferenceUrl] =
@@ -107,15 +175,34 @@ export default function WrapColorPreview() {
   );
 
   const generatePreview = trpc.wrapPreview.generate.useMutation({
-    onSuccess: result => {
-      setGeneratedPreview(result.previewUrl);
+    onSuccess: async result => {
+      let previewUrl = result.previewUrl;
+      let outputSize = result.outputSize ?? "";
+      const aspectRatio =
+        result.aspectRatio ??
+        (sourceDimensions ? getAspectRatioLabel(sourceDimensions) : "");
+
+      if (sourceDimensions) {
+        try {
+          const normalized = await cropPreviewToSourceAspectRatio(
+            result.previewUrl,
+            sourceDimensions
+          );
+          previewUrl = normalized.previewUrl;
+          outputSize = normalized.outputSize;
+        } catch {
+          // The server-side output remains available if a browser blocks canvas conversion.
+        }
+      }
+
+      setGeneratedPreview(previewUrl);
       setGeneratedColorId(result.pantoneId);
       setGeneratedMaterialReferenceUrl(result.materialReferenceUrl ?? "");
       setGeneratedColorReview(result.colorReview);
       setGeneratedColorMetrics(result.colorMetrics ?? null);
       setGeneratedPartialWrapCustomizations(result.partialWrapCustomizations);
-      setGeneratedAspectRatio(result.aspectRatio ?? "");
-      setGeneratedOutputSize(result.outputSize ?? "");
+      setGeneratedAspectRatio(aspectRatio);
+      setGeneratedOutputSize(outputSize);
       toast.success("預覽已生成", {
         description: `${result.pantoneId} 的包膜概念預覽已完成。`,
       });
@@ -131,6 +218,14 @@ export default function WrapColorPreview() {
       if (sourcePreview.startsWith("blob:")) URL.revokeObjectURL(sourcePreview);
     },
     [sourcePreview]
+  );
+
+  useEffect(
+    () => () => {
+      if (generatedPreview.startsWith("blob:"))
+        URL.revokeObjectURL(generatedPreview);
+    },
+    [generatedPreview]
   );
 
   const resetGeneratedPreview = () => {
@@ -208,6 +303,14 @@ export default function WrapColorPreview() {
       setSourcePreview(dataUrl);
       setImageBase64(dataUrl.slice(separatorIndex + 1));
       setFileName(file.name);
+      void loadImage(dataUrl)
+        .then(image =>
+          setSourceDimensions({
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+          })
+        )
+        .catch(() => setInputError("無法辨識照片尺寸，請重新選擇檔案。"));
     };
     reader.readAsDataURL(file);
   };
@@ -215,6 +318,7 @@ export default function WrapColorPreview() {
   const clearPhoto = () => {
     setSourcePreview("");
     setImageBase64("");
+    setSourceDimensions(null);
     setFileName("");
     setInputError("");
     resetGeneratedPreview();
@@ -579,7 +683,16 @@ export default function WrapColorPreview() {
             </button>
           </form>
 
-          <div className="relative min-h-[440px] overflow-hidden border border-white/15 bg-[#0b0b0a] sm:min-h-[560px]">
+          <div
+            className={`relative overflow-hidden border border-white/15 bg-[#0b0b0a] ${generatedPreview && sourceDimensions ? "min-h-0" : "min-h-[440px] sm:min-h-[560px]"}`}
+            style={
+              generatedPreview && sourceDimensions
+                ? {
+                    aspectRatio: `${sourceDimensions.width} / ${sourceDimensions.height}`,
+                  }
+                : undefined
+            }
+          >
             {generatedPreview ? (
               <>
                 <img
