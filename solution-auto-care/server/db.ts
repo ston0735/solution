@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, inArray, like, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, gt, inArray, like, lt, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertMemberPreviewHistory,
@@ -165,15 +165,120 @@ export async function listAdminMemberPreviewHistory(
     .limit(Math.min(Math.max(limit, 1), 100));
 }
 
-export async function getAdminMemberDirectory(search: string, limit = 200) {
+export async function updateAdminMemberPreview(
+  memberId: number,
+  previewId: number,
+  input: {
+    followUpStatus: string;
+    adminTagsJson: string;
+    adminNote: string | null;
+  },
+) {
   const db = await getDb();
   if (!db) throw new Error("DATABASE_UNAVAILABLE");
-  const normalizedSearch = search.trim();
-  const memberWhere = normalizedSearch
-    ? or(
-        like(users.name, `%${normalizedSearch}%`),
-        like(users.email, `%${normalizedSearch}%`),
-      )
+  await db
+    .update(memberPreviewHistory)
+    .set({
+      followUpStatus: input.followUpStatus,
+      adminTagsJson: input.adminTagsJson,
+      adminNote: input.adminNote,
+    })
+    .where(
+      and(
+        eq(memberPreviewHistory.id, previewId),
+        eq(memberPreviewHistory.userId, memberId),
+      ),
+    );
+  const [item] = await db
+    .select()
+    .from(memberPreviewHistory)
+    .where(
+      and(
+        eq(memberPreviewHistory.id, previewId),
+        eq(memberPreviewHistory.userId, memberId),
+      ),
+    )
+    .limit(1);
+  return item;
+}
+
+export type AdminMemberDirectoryFilters = {
+  search?: string;
+  vehicleModel?: string;
+  pantoneId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  followUpStatus?: string;
+};
+
+export async function getAdminMemberDirectory(
+  filters: AdminMemberDirectoryFilters = {},
+  limit = 200,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DATABASE_UNAVAILABLE");
+  const normalizedSearch = filters.search?.trim() ?? "";
+  const memberConditions = normalizedSearch
+    ? [
+        or(
+          like(users.name, `%${normalizedSearch}%`),
+          like(users.email, `%${normalizedSearch}%`),
+        ),
+      ]
+    : [];
+
+  const previewConditions = [];
+  if (filters.vehicleModel?.trim()) {
+    previewConditions.push(
+      like(memberPreviewHistory.vehicleModel, `%${filters.vehicleModel.trim()}%`),
+    );
+  }
+  if (filters.pantoneId?.trim()) {
+    previewConditions.push(
+      like(memberPreviewHistory.pantoneId, `%${filters.pantoneId.trim()}%`),
+    );
+  }
+  if (filters.followUpStatus?.trim()) {
+    previewConditions.push(
+      eq(memberPreviewHistory.followUpStatus, filters.followUpStatus.trim()),
+    );
+  }
+  if (filters.dateFrom) {
+    const dateFrom = new Date(`${filters.dateFrom}T00:00:00.000Z`);
+    if (!Number.isNaN(dateFrom.getTime())) {
+      previewConditions.push(gte(memberPreviewHistory.createdAt, dateFrom));
+    }
+  }
+  if (filters.dateTo) {
+    const dateTo = new Date(`${filters.dateTo}T00:00:00.000Z`);
+    if (!Number.isNaN(dateTo.getTime())) {
+      dateTo.setUTCDate(dateTo.getUTCDate() + 1);
+      previewConditions.push(lt(memberPreviewHistory.createdAt, dateTo));
+    }
+  }
+  if (previewConditions.length > 0) {
+    const matchingPreviewRows = await db
+      .select({ userId: memberPreviewHistory.userId })
+      .from(memberPreviewHistory)
+      .where(and(...previewConditions));
+    const matchingMemberIds = Array.from(
+      new Set(matchingPreviewRows.map(row => row.userId)),
+    );
+    if (matchingMemberIds.length === 0) {
+      return {
+        summary: {
+          totalMembers: 0,
+          newMembersLast7Days: 0,
+          activeMembersLast30Days: 0,
+          totalPreviews: 0,
+        },
+        members: [],
+      };
+    }
+    memberConditions.push(inArray(users.id, matchingMemberIds));
+  }
+  const memberWhere = memberConditions.length
+    ? and(...memberConditions)
     : undefined;
   const members = await db
     .select({

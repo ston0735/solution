@@ -128,6 +128,7 @@ export default function WrapColorPreview() {
   const [customColorId, setCustomColorId] = useState("");
   const [sourcePreview, setSourcePreview] = useState("");
   const [imageBase64, setImageBase64] = useState("");
+  const [vehicleModel, setVehicleModel] = useState("");
   const [sourceDimensions, setSourceDimensions] =
     useState<ImageDimensions | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState("");
@@ -231,6 +232,7 @@ export default function WrapColorPreview() {
           const historyResponse = await createMemberPreviewHistory({
             previewUrl: result.previewUrl,
             originalImageDataUrl: sourcePreview,
+            vehicleModel: vehicleModel.trim() || null,
             pantoneId: result.pantoneId,
             catalogColor: catalogColorContext ?? null,
             aspectRatio,
@@ -542,6 +544,27 @@ export default function WrapColorPreview() {
                 className="sr-only"
                 disabled={isGenerating}
               />
+            </div>
+
+            <div className="mt-7">
+              <label
+                htmlFor="vehicle-model"
+                className="mb-3 block text-xs font-bold tracking-[0.12em] text-white/86"
+              >
+                車款／車系（選填）
+              </label>
+              <input
+                id="vehicle-model"
+                value={vehicleModel}
+                onChange={event => setVehicleModel(event.target.value)}
+                placeholder="例如：Porsche Taycan 4S、BMW M3 G80"
+                maxLength={120}
+                disabled={isGenerating}
+                className="h-12 w-full border border-white/20 bg-[#0d0e0b] px-4 text-sm text-white outline-none transition-colors placeholder:text-white/25 focus:border-[#a9ff44] disabled:opacity-60"
+              />
+              <p className="mt-2 text-xs leading-5 text-white/40">
+                只用於會員紀錄與 CRM 搜尋，不會改變 AI 產圖內容。
+              </p>
             </div>
 
             <div className="mt-7">

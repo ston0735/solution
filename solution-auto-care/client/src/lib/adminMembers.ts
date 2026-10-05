@@ -13,6 +13,15 @@ export type AdminMember = {
 
 export type AdminMemberPreview = PreviewHistoryItem;
 
+export type AdminMemberFilters = {
+  search?: string;
+  vehicleModel?: string;
+  pantoneId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  followUpStatus?: string;
+};
+
 export type AdminMemberDirectory = {
   summary: {
     totalMembers: number;
@@ -42,9 +51,11 @@ async function readError(response: Response, fallback: string) {
   }
 }
 
-export async function getAdminMemberDirectory(search = "") {
+export async function getAdminMemberDirectory(filters: AdminMemberFilters = {}) {
   const params = new URLSearchParams({ limit: "200" });
-  if (search.trim()) params.set("search", search.trim());
+  for (const [key, value] of Object.entries(filters)) {
+    if (value?.trim()) params.set(key, value.trim());
+  }
 
   const response = await fetch(`/api/admin/members?${params.toString()}`, {
     credentials: "include",
@@ -71,4 +82,34 @@ export async function getAdminMemberPreviews(memberId: number) {
     );
   }
   return (await response.json()) as { items: AdminMemberPreview[] };
+}
+
+export type AdminPreviewUpdate = {
+  followUpStatus: "new" | "contacted" | "quoted" | "booked" | "closed";
+  adminTags: string[];
+  adminNote: string;
+};
+
+export async function updateAdminMemberPreview(
+  memberId: number,
+  previewId: number,
+  input: AdminPreviewUpdate,
+) {
+  const response = await fetch(
+    `/api/admin/members/${memberId}/previews/${previewId}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!response.ok) {
+    throw new AdminMemberDirectoryError(
+      await readError(response, "預覽跟進資料暫時無法更新。"),
+      response.status,
+    );
+  }
+  return (await response.json()) as { item: AdminMemberPreview };
 }

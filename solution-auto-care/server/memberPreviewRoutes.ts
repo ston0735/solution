@@ -6,6 +6,7 @@ import {
   listMemberPreviewHistory,
   saveMemberPreviewHistory,
   getAdminMemberDirectory,
+  updateAdminMemberPreview,
 } from "./db";
 import { sdk } from "./_core/sdk";
 import { storagePut } from "./storage";
@@ -28,11 +29,26 @@ const partialWrapSchema = z.object({
 const createPreviewSchema = z.object({
   previewUrl: z.string().min(1).max(600),
   originalImageDataUrl: z.string().min(32).max(9_000_000),
+  vehicleModel: z.string().trim().max(120).nullable().optional(),
   pantoneId: z.string().min(2).max(48),
   catalogColor: catalogColorSchema.optional(),
   aspectRatio: z.string().regex(/^\d+:\d+$/).max(20),
   outputSize: z.string().max(32).nullable().optional(),
   partialWrapCustomizations: z.array(partialWrapSchema).max(4).default([]),
+});
+
+const followUpStatusSchema = z.enum([
+  "new",
+  "contacted",
+  "quoted",
+  "booked",
+  "closed",
+]);
+
+const adminPreviewUpdateSchema = z.object({
+  followUpStatus: followUpStatusSchema,
+  adminTags: z.array(z.string().trim().min(1).max(32)).max(12),
+  adminNote: z.string().trim().max(2000),
 });
 
 type AuthenticatedRequest = Request & {
@@ -63,10 +79,12 @@ export function parseMemberPreviewJson<T>(
 }
 
 export function serializeMemberPreviewHistory(item: MemberPreviewHistory) {
+  const updatedAt = item.updatedAt ?? item.createdAt;
   return {
     id: item.id,
     previewUrl: item.previewUrl,
     originalImageUrl: item.originalImageUrl,
+    vehicleModel: item.vehicleModel,
     pantoneId: item.pantoneId,
     catalogColor: parseMemberPreviewJson(item.catalogColorJson, null),
     aspectRatio: item.aspectRatio,
@@ -75,7 +93,11 @@ export function serializeMemberPreviewHistory(item: MemberPreviewHistory) {
       item.partialWrapCustomizations,
       [],
     ),
+    followUpStatus: item.followUpStatus ?? "new",
+    adminTags: parseMemberPreviewJson(item.adminTagsJson, [] as string[]),
+    adminNote: item.adminNote,
     createdAt: item.createdAt.toISOString(),
+    updatedAt: updatedAt.toISOString(),
     retentionDays: item.retentionDays,
     expiresAt: item.expiresAt.toISOString(),
     isSaved: item.isSaved === 1,
@@ -138,6 +160,7 @@ export function registerMemberPreviewRoutes(app: Express) {
         userId: user.id,
         previewUrl: parsed.data.previewUrl,
         originalImageUrl: uploaded.url,
+        vehicleModel: parsed.data.vehicleModel?.trim() || null,
         pantoneId: parsed.data.pantoneId,
         catalogColorJson: parsed.data.catalogColor
           ? JSON.stringify(parsed.data.catalogColor)
@@ -147,6 +170,9 @@ export function registerMemberPreviewRoutes(app: Express) {
         partialWrapCustomizations: JSON.stringify(
           parsed.data.partialWrapCustomizations,
         ),
+        followUpStatus: "new",
+        adminTagsJson: JSON.stringify([]),
+        adminNote: null,
         retentionDays: 3,
         expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
         isSaved: 0,
@@ -195,10 +221,25 @@ export function registerMemberPreviewRoutes(app: Express) {
       return;
     }
     try {
-      const search = typeof req.query.search === "string" ? req.query.search : "";
+      const filters = {
+        search: typeof req.query.search === "string" ? req.query.search : "",
+        vehicleModel:
+          typeof req.query.vehicleModel === "string"
+            ? req.query.vehicleModel
+            : "",
+        pantoneId:
+          typeof req.query.pantoneId === "string" ? req.query.pantoneId : "",
+        dateFrom:
+          typeof req.query.dateFrom === "string" ? req.query.dateFrom : "",
+        dateTo: typeof req.query.dateTo === "string" ? req.query.dateTo : "",
+        followUpStatus:
+          typeof req.query.followUpStatus === "string"
+            ? req.query.followUpStatus
+            : "",
+      };
       const limit = Number(req.query.limit ?? 200);
       const directory = await getAdminMemberDirectory(
-        search,
+        filters,
         Number.isFinite(limit) ? limit : 200,
       );
       res.setHeader("Cache-Control", "no-store, private");
@@ -228,4 +269,49 @@ export function registerMemberPreviewRoutes(app: Express) {
       sendServerError(res, error);
     }
   });
+
+  app.patch(
+    "/api/admin/members/:memberId/previews/:previewId",
+    async (req: AuthenticatedRequest, res) => {
+      const user = await authenticate(req, res);
+      if (!user) return;
+      if (user.role !== "admin") {
+        res.status(403).json({ error: "你沒有會員 CRM 的管理權限。" });
+        return;
+      }
+      const memberId = Number(req.params.memberId);
+      const previewId = Number(req.params.previewId);
+      if (
+        !Number.isInteger(memberId) ||
+        memberId < 1 ||
+        !Number.isInteger(previewId) ||
+        previewId < 1
+      ) {
+        res.status(400).json({ error: "會員或預覽編號無效。" });
+        return;
+      }
+      const parsed = adminPreviewUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "跟進資料格式不完整。" });
+        return;
+      }
+      try {
+        const updated = await updateAdminMemberPreview(memberId, previewId, {
+          followUpStatus: parsed.data.followUpStatus,
+          adminTagsJson: JSON.stringify(
+            parsed.data.adminTags.map(tag => tag.trim()).filter(Boolean),
+          ),
+          adminNote: parsed.data.adminNote.trim() || null,
+        });
+        if (!updated) {
+          res.status(404).json({ error: "找不到這筆會員預覽紀錄。" });
+          return;
+        }
+        res.setHeader("Cache-Control", "no-store, private");
+        res.json({ item: serializeMemberPreviewHistory(updated) });
+      } catch (error) {
+        sendServerError(res, error);
+      }
+    },
+  );
 }

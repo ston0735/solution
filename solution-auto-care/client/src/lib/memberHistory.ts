@@ -2,6 +2,7 @@ export type PreviewHistoryItem = {
   id: number;
   previewUrl: string;
   originalImageUrl: string | null;
+  vehicleModel: string | null;
   pantoneId: string;
   catalogColor: {
     code: string;
@@ -14,7 +15,11 @@ export type PreviewHistoryItem = {
   aspectRatio: string;
   outputSize?: string | null;
   partialWrapCustomizations: Array<{ part?: string; finish?: string }>;
+  followUpStatus: "new" | "contacted" | "quoted" | "booked" | "closed";
+  adminTags: string[];
+  adminNote: string | null;
   createdAt: string;
+  updatedAt: string;
   retentionDays: number;
   expiresAt: string;
   isSaved: boolean;
@@ -27,6 +32,7 @@ type HistoryResponse = {
 type CreateHistoryInput = {
   previewUrl: string;
   originalImageDataUrl: string;
+  vehicleModel?: string | null;
   pantoneId: string;
   catalogColor?: PreviewHistoryItem["catalogColor"];
   aspectRatio: string;

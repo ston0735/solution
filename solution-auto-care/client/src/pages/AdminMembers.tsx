@@ -4,6 +4,7 @@ import {
   AdminMemberDirectoryError,
   getAdminMemberDirectory,
   getAdminMemberPreviews,
+  updateAdminMemberPreview,
   type AdminMember,
   type AdminMemberPreview,
   type AdminMemberDirectory,
@@ -24,6 +25,7 @@ import {
   LockKeyhole,
   RefreshCcw,
   Search,
+  Save,
   ShieldCheck,
   Settings2,
   Sparkles,
@@ -37,6 +39,21 @@ const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
   dateStyle: "medium",
   timeStyle: "short",
 });
+
+const FOLLOW_UP_STATUS_OPTIONS = [
+  ["new", "待跟進"],
+  ["contacted", "已聯絡"],
+  ["quoted", "已報價"],
+  ["booked", "已預約"],
+  ["closed", "已結案"],
+] as const;
+
+function followUpStatusLabel(status: string) {
+  return (
+    FOLLOW_UP_STATUS_OPTIONS.find(([value]) => value === status)?.[1] ??
+    "待跟進"
+  );
+}
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -223,6 +240,18 @@ export default function AdminMembers() {
   const adminName = user?.name?.trim() || "Solution 管理員";
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
+  const [vehicleModelInput, setVehicleModelInput] = useState("");
+  const [pantoneInput, setPantoneInput] = useState("");
+  const [dateFromInput, setDateFromInput] = useState("");
+  const [dateToInput, setDateToInput] = useState("");
+  const [followUpStatusInput, setFollowUpStatusInput] = useState("");
+  const [activeFilters, setActiveFilters] = useState({
+    vehicleModel: "",
+    pantoneId: "",
+    dateFrom: "",
+    dateTo: "",
+    followUpStatus: "",
+  });
   const [refreshKey, setRefreshKey] = useState(0);
   const [directory, setDirectory] = useState<AdminMemberDirectory | null>(null);
   const [directoryLoading, setDirectoryLoading] = useState(false);
@@ -233,6 +262,10 @@ export default function AdminMembers() {
   >({});
   const [previewLoadingMemberId, setPreviewLoadingMemberId] = useState<number | null>(null);
   const [previewError, setPreviewError] = useState("");
+  const [previewDrafts, setPreviewDrafts] = useState<
+    Record<number, { followUpStatus: string; adminTags: string; adminNote: string }>
+  >({});
+  const [savingPreviewId, setSavingPreviewId] = useState<number | null>(null);
 
   const switchToAdminAccount = async () => {
     try {
@@ -247,7 +280,7 @@ export default function AdminMembers() {
     let cancelled = false;
     setDirectoryLoading(true);
     setDirectoryError("");
-    void getAdminMemberDirectory(activeSearch)
+    void getAdminMemberDirectory({ search: activeSearch, ...activeFilters })
       .then(result => {
         if (!cancelled) setDirectory(result);
       })
@@ -270,7 +303,7 @@ export default function AdminMembers() {
     return () => {
       cancelled = true;
     };
-  }, [activeSearch, isAdmin, refreshKey]);
+  }, [activeFilters, activeSearch, isAdmin, refreshKey]);
 
   const members = directory?.members ?? [];
   const summaryCards: Array<{
@@ -306,14 +339,40 @@ export default function AdminMembers() {
   ];
   const resultLabel = useMemo(() => {
     if (!directory) return "";
-    return activeSearch.trim()
-      ? `符合「${activeSearch.trim()}」的 ${members.length} 位會員`
+    const hasFilters =
+      activeSearch.trim() || Object.values(activeFilters).some(Boolean);
+    return hasFilters
+      ? `符合目前篩選條件的 ${members.length} 位會員`
       : `目前顯示 ${members.length} 位會員`;
-  }, [activeSearch, directory, members.length]);
+  }, [activeFilters, activeSearch, directory, members.length]);
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setActiveSearch(searchInput.trim());
+    setActiveFilters({
+      vehicleModel: vehicleModelInput.trim(),
+      pantoneId: pantoneInput.trim(),
+      dateFrom: dateFromInput,
+      dateTo: dateToInput,
+      followUpStatus: followUpStatusInput,
+    });
+  };
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setActiveSearch("");
+    setVehicleModelInput("");
+    setPantoneInput("");
+    setDateFromInput("");
+    setDateToInput("");
+    setFollowUpStatusInput("");
+    setActiveFilters({
+      vehicleModel: "",
+      pantoneId: "",
+      dateFrom: "",
+      dateTo: "",
+      followUpStatus: "",
+    });
   };
 
   const handleExport = () => {
@@ -341,6 +400,56 @@ export default function AdminMembers() {
       setPreviewError(error instanceof Error ? error.message : "會員預覽資料暫時無法讀取。");
     } finally {
       setPreviewLoadingMemberId(null);
+    }
+  };
+
+  const getPreviewDraft = (preview: AdminMemberPreview) =>
+    previewDrafts[preview.id] ?? {
+      followUpStatus: preview.followUpStatus,
+      adminTags: preview.adminTags.join(", "),
+      adminNote: preview.adminNote ?? "",
+    };
+
+  const updatePreviewDraft = (
+    preview: AdminMemberPreview,
+    patch: Partial<ReturnType<typeof getPreviewDraft>>,
+  ) => {
+    setPreviewDrafts(current => ({
+      ...current,
+      [preview.id]: { ...getPreviewDraft(preview), ...patch },
+    }));
+  };
+
+  const savePreviewDetails = async (memberId: number, preview: AdminMemberPreview) => {
+    const draft = getPreviewDraft(preview);
+    setSavingPreviewId(preview.id);
+    try {
+      const response = await updateAdminMemberPreview(memberId, preview.id, {
+        followUpStatus: draft.followUpStatus as "new" | "contacted" | "quoted" | "booked" | "closed",
+        adminTags: draft.adminTags
+          .split(",")
+          .map(tag => tag.trim())
+          .filter(Boolean),
+        adminNote: draft.adminNote,
+      });
+      setPreviewsByMember(current => ({
+        ...current,
+        [memberId]: (current[memberId] ?? []).map(item =>
+          item.id === preview.id ? response.item : item,
+        ),
+      }));
+      setPreviewDrafts(current => {
+        const next = { ...current };
+        delete next[preview.id];
+        return next;
+      });
+      toast.success("預覽跟進資料已更新");
+    } catch (error) {
+      toast.error("預覽跟進資料更新失敗", {
+        description: error instanceof Error ? error.message : "請稍後再試。",
+      });
+    } finally {
+      setSavingPreviewId(null);
     }
   };
 
@@ -497,6 +606,58 @@ export default function AdminMembers() {
                   </div>
                 </div>
 
+                <div className="mt-3 grid gap-2 border border-white/10 bg-[#11130f] p-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <input
+                    value={vehicleModelInput}
+                    onChange={event => setVehicleModelInput(event.target.value)}
+                    placeholder="車款／車系"
+                    className="h-10 border border-white/15 bg-black/20 px-3 text-xs text-white outline-none placeholder:text-white/35 focus:border-[#a9ff44]"
+                  />
+                  <input
+                    value={pantoneInput}
+                    onChange={event => setPantoneInput(event.target.value)}
+                    placeholder="色號，例如 SRG181"
+                    className="h-10 border border-white/15 bg-black/20 px-3 text-xs text-white outline-none placeholder:text-white/35 focus:border-[#a9ff44]"
+                  />
+                  <label className="flex h-10 items-center gap-2 border border-white/15 bg-black/20 px-3 text-[0.63rem] text-white/45">
+                    <span>從</span>
+                    <input
+                      type="date"
+                      value={dateFromInput}
+                      onChange={event => setDateFromInput(event.target.value)}
+                      className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none"
+                    />
+                  </label>
+                  <label className="flex h-10 items-center gap-2 border border-white/15 bg-black/20 px-3 text-[0.63rem] text-white/45">
+                    <span>至</span>
+                    <input
+                      type="date"
+                      value={dateToInput}
+                      onChange={event => setDateToInput(event.target.value)}
+                      className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none"
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={followUpStatusInput}
+                      onChange={event => setFollowUpStatusInput(event.target.value)}
+                      className="h-10 min-w-0 flex-1 border border-white/15 bg-black/20 px-3 text-xs text-white outline-none focus:border-[#a9ff44]"
+                    >
+                      <option value="" className="bg-[#10110e]">全部跟進狀態</option>
+                      {FOLLOW_UP_STATUS_OPTIONS.map(([value, label]) => (
+                        <option key={value} value={value} className="bg-[#10110e]">{label}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="border border-white/20 px-3 text-[0.62rem] font-bold text-white/55 hover:border-[#a9ff44] hover:text-[#a9ff44]"
+                    >
+                      清除
+                    </button>
+                  </div>
+                </div>
+
                 {directoryError ? (
                   <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-l-2 border-amber-300 bg-amber-300/10 px-4 py-4 text-sm text-amber-50">
                     <span>{directoryError}</span>
@@ -623,8 +784,45 @@ export default function AdminMembers() {
                                                   <p className="mt-2 font-display text-2xl text-white">{preview.pantoneId}</p>
                                                   <p className="mt-1 text-sm text-white/70">{displayPreviewColor(preview)}</p>
                                                   {preview.catalogColor && <p className="mt-1 text-xs text-white/42">{preview.catalogColor.category} · {preview.catalogColor.categoryEn}</p>}
+                                                  {preview.vehicleModel && <p className="mt-2 text-xs text-white/55">車款：{preview.vehicleModel}</p>}
                                                 </div>
                                                 {preview.catalogColor?.swatch && <span className="h-9 w-9 shrink-0 border border-white/20" style={{ backgroundColor: preview.catalogColor.swatch }} title="型錄近似色" />}
+                                              </div>
+                                              <div className="space-y-2 border-t border-white/10 pt-3">
+                                                <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">跟進狀態</label>
+                                                <select
+                                                  value={getPreviewDraft(preview).followUpStatus}
+                                                  onChange={event => updatePreviewDraft(preview, { followUpStatus: event.target.value })}
+                                                  className="h-9 w-full border border-white/15 bg-black/20 px-2 text-xs text-white outline-none focus:border-[#a9ff44]"
+                                                >
+                                                  {FOLLOW_UP_STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value} className="bg-[#10110e]">{label}</option>)}
+                                                </select>
+                                                <p className="text-[0.6rem] text-white/38">目前：{followUpStatusLabel(getPreviewDraft(preview).followUpStatus)}</p>
+                                              </div>
+                                              <div className="space-y-2 border-t border-white/10 pt-3">
+                                                <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">標籤（逗號分隔）</label>
+                                                <input
+                                                  value={getPreviewDraft(preview).adminTags}
+                                                  onChange={event => updatePreviewDraft(preview, { adminTags: event.target.value })}
+                                                  placeholder="例如：高意向, Taycan, 待報價"
+                                                  className="h-9 w-full border border-white/15 bg-black/20 px-2 text-xs text-white outline-none placeholder:text-white/25 focus:border-[#a9ff44]"
+                                                />
+                                                <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">管理員備註</label>
+                                                <textarea
+                                                  value={getPreviewDraft(preview).adminNote}
+                                                  onChange={event => updatePreviewDraft(preview, { adminNote: event.target.value })}
+                                                  placeholder="記錄客戶需求、預算或聯絡結果"
+                                                  rows={3}
+                                                  className="w-full resize-y border border-white/15 bg-black/20 px-2 py-2 text-xs leading-5 text-white outline-none placeholder:text-white/25 focus:border-[#a9ff44]"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() => void savePreviewDetails(member.id, preview)}
+                                                  disabled={savingPreviewId === preview.id}
+                                                  className="inline-flex items-center gap-2 bg-[#a9ff44] px-3 py-2 text-[0.62rem] font-bold text-[#10130a] hover:bg-white disabled:opacity-50"
+                                                >
+                                                  <Save size={13} /> {savingPreviewId === preview.id ? "保存中…" : "保存跟進資料"}
+                                                </button>
                                               </div>
                                               <div className="border-t border-white/10 pt-3">
                                                 <div className="flex items-start gap-2 text-xs leading-5 text-white/65"><Settings2 size={14} className="mt-0.5 shrink-0 text-[#a9ff44]" /><span>{displayPreviewConfiguration(preview)}</span></div>
