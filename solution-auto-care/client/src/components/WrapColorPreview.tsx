@@ -1,4 +1,6 @@
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { saveMemberPreviewHistory } from "@/lib/memberHistory";
 import { WRAP_COLOR_CATALOG, type WrapColor } from "@/data/wrapColorCatalog";
 import { getWrapColorPresentation } from "@/lib/wrapColorPresentation";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -104,6 +106,7 @@ async function cropPreviewToSourceAspectRatio(
 }
 
 export default function WrapColorPreview() {
+  const { isAuthenticated } = useAuth();
   const fileInputId = useId();
   const categories = useMemo(
     () => Array.from(new Set(WRAP_COLOR_CATALOG.map(color => color.category))),
@@ -203,8 +206,30 @@ export default function WrapColorPreview() {
       setGeneratedPartialWrapCustomizations(result.partialWrapCustomizations);
       setGeneratedAspectRatio(aspectRatio);
       setGeneratedOutputSize(outputSize);
+      let historySaved = false;
+      if (isAuthenticated) {
+        try {
+          await saveMemberPreviewHistory({
+            previewUrl: result.previewUrl,
+            pantoneId: result.pantoneId,
+            aspectRatio,
+            outputSize,
+            partialWrapCustomizations: result.partialWrapCustomizations,
+          });
+          historySaved = true;
+        } catch (error) {
+          toast.warning("預覽已完成，但歷史紀錄暫時無法保存", {
+            description:
+              error instanceof Error ? error.message : "請稍後到會員專區重試。",
+          });
+        }
+      }
       toast.success("預覽已生成", {
-        description: `${result.pantoneId} 的包膜概念預覽已完成。`,
+        description: historySaved
+          ? `${result.pantoneId} 的包膜概念預覽已完成，已保存到會員專區。`
+          : isAuthenticated
+            ? `${result.pantoneId} 的包膜概念預覽已完成。`
+            : "登入會員後，完成的預覽才會自動保存。",
       });
     },
     onError: error => {

@@ -20,6 +20,10 @@
       "destination": "https://solutionauth-zcgxwa4c.manus.space/api/oauth/exchange"
     },
     {
+      "source": "/api/member-history",
+      "destination": "https://solutionauth-zcgxwa4c.manus.space/api/member-history"
+    },
+    {
       "source": "/api/trpc/auth.:path*",
       "destination": "https://solutionauth-zcgxwa4c.manus.space/api/trpc/auth.:path*"
     },
