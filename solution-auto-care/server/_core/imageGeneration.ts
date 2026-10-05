@@ -1,5 +1,6 @@
 import { storagePut } from "server/storage";
 import { ENV } from "./env";
+import sharp from "sharp";
 
 /** OpenAI model selected after credential validation. */
 export const OPENAI_IMAGE_MODEL = "gpt-image-2";
@@ -17,6 +18,10 @@ export type GenerateImageOptions = {
   model?: string;
   /** GPT Image quality: low, medium, or high. */
   quality?: string;
+  /** Requested output size, including custom GPT Image dimensions. */
+  size?: string;
+  /** Final dimensions used to guarantee the requested source aspect ratio. */
+  outputDimensions?: { width: number; height: number };
 };
 
 export type GenerateImageResponse = {
@@ -40,7 +45,12 @@ type OpenAIErrorPayload = {
 };
 
 function normalizedMimeType(mimeType?: string) {
-  if (mimeType === "image/jpeg" || mimeType === "image/png" || mimeType === "image/webp") return mimeType;
+  if (
+    mimeType === "image/jpeg" ||
+    mimeType === "image/png" ||
+    mimeType === "image/webp"
+  )
+    return mimeType;
   return "image/png";
 }
 
@@ -51,12 +61,15 @@ function extensionForMimeType(mimeType: string) {
 }
 
 async function inputImageToBlob(
-  image: NonNullable<GenerateImageOptions["originalImages"]>[number],
+  image: NonNullable<GenerateImageOptions["originalImages"]>[number]
 ): Promise<Blob> {
   const mimeType = normalizedMimeType(image.mimeType);
 
   if (image.b64Json) {
-    const buffer = Buffer.from(image.b64Json.replace(/^data:[^;]+;base64,/, ""), "base64");
+    const buffer = Buffer.from(
+      image.b64Json.replace(/^data:[^;]+;base64,/, ""),
+      "base64"
+    );
     if (!buffer.length) throw new Error("OPENAI_INVALID_IMAGE_INPUT");
     const bytes = new Uint8Array(buffer.length);
     bytes.set(buffer);
@@ -66,7 +79,9 @@ async function inputImageToBlob(
   if (image.url) {
     const response = await fetch(image.url);
     if (!response.ok) throw new Error("OPENAI_INVALID_IMAGE_INPUT");
-    const fetchedType = normalizedMimeType(response.headers.get("content-type")?.split(";")[0]);
+    const fetchedType = normalizedMimeType(
+      response.headers.get("content-type")?.split(";")[0]
+    );
     return new Blob([await response.arrayBuffer()], { type: fetchedType });
   }
 
@@ -85,7 +100,11 @@ async function toSafeOpenAIError(response: Response) {
   }
 
   const descriptor = `${code} ${type}`;
-  if (response.status === 401 || response.status === 403 || descriptor.includes("invalid_api_key")) {
+  if (
+    response.status === 401 ||
+    response.status === 403 ||
+    descriptor.includes("invalid_api_key")
+  ) {
     return new Error("OPENAI_AUTH");
   }
   if (
@@ -99,7 +118,10 @@ async function toSafeOpenAIError(response: Response) {
   if (response.status === 429 || descriptor.includes("rate_limit")) {
     return new Error("OPENAI_RATE_LIMIT");
   }
-  if (descriptor.includes("moderation") || descriptor.includes("content_policy")) {
+  if (
+    descriptor.includes("moderation") ||
+    descriptor.includes("content_policy")
+  ) {
     return new Error("OPENAI_MODERATION");
   }
   return new Error("OPENAI_IMAGE_REQUEST_FAILED");
@@ -110,7 +132,9 @@ async function toSafeOpenAIError(response: Response) {
  * Each supplied source image is uploaded as an image[] reference; the first is
  * the vehicle photo and the optional second is the physical material-card image.
  */
-export async function generateImage(options: GenerateImageOptions): Promise<GenerateImageResponse> {
+export async function generateImage(
+  options: GenerateImageOptions
+): Promise<GenerateImageResponse> {
   if (!ENV.openAiApiKey) throw new Error("OPENAI_KEY_MISSING");
 
   const sourceImages = options.originalImages ?? [];
@@ -123,6 +147,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
   form.set("model", selectedModel);
   form.set("prompt", options.prompt);
   form.set("quality", options.quality || DEFAULT_IMAGE_QUALITY);
+  if (options.size) form.set("size", options.size);
   // OpenAI's current Images Edits contract requires input_fidelity to be
   // omitted for GPT Image 2. It is supported by older GPT Image 1 models,
   // but sending it to GPT Image 2 causes the request to be rejected.
@@ -162,12 +187,23 @@ export async function generateImage(options: GenerateImageOptions): Promise<Gene
       ? "image/jpeg"
       : result.output_format === "webp"
         ? "image/webp"
-        : "image/png",
+        : "image/png"
   );
+  const generatedBuffer = options.outputDimensions
+    ? await sharp(Buffer.from(b64Json, "base64"))
+        .resize({
+          width: options.outputDimensions.width,
+          height: options.outputDimensions.height,
+          fit: "cover",
+          position: "centre",
+        })
+        .png()
+        .toBuffer()
+    : Buffer.from(b64Json, "base64");
   const { url } = await storagePut(
     `generated/openai-wrap-preview-${Date.now()}.${extensionForMimeType(outputMimeType)}`,
-    Buffer.from(b64Json, "base64"),
-    outputMimeType,
+    generatedBuffer,
+    outputMimeType
   );
   return { url };
 }
