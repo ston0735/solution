@@ -9,6 +9,10 @@ import {
   type AdminMemberPreview,
   type AdminMemberDirectory,
 } from "@/lib/adminMembers";
+import {
+  askCrmAssistant,
+  type CrmAssistantMessage,
+} from "@/lib/adminAssistant";
 import { WRAP_LOGO_ASSET_PATH } from "@shared/wrapAssetPaths";
 import {
   PARTIAL_WRAP_FINISHES,
@@ -16,6 +20,7 @@ import {
 } from "@shared/partialWrapOptions";
 import {
   ArrowLeft,
+  Bot,
   ChevronDown,
   ChevronUp,
   Download,
@@ -23,9 +28,11 @@ import {
   FileSpreadsheet,
   ImageOff,
   LockKeyhole,
+  LoaderCircle,
   RefreshCcw,
   Search,
   Save,
+  Send,
   ShieldCheck,
   Settings2,
   Sparkles,
@@ -86,13 +93,15 @@ function displayPreviewConfiguration(preview: AdminMemberPreview) {
   return preview.partialWrapCustomizations
     .map(item => {
       const part =
-        PARTIAL_WRAP_PARTS[item.part as keyof typeof PARTIAL_WRAP_PARTS]?.label ??
+        PARTIAL_WRAP_PARTS[item.part as keyof typeof PARTIAL_WRAP_PARTS]
+          ?.label ??
         item.part ??
         "局部";
       const finish =
-        PARTIAL_WRAP_FINISHES[
-          item.finish as keyof typeof PARTIAL_WRAP_FINISHES
-        ]?.label ?? item.finish ?? "材質";
+        PARTIAL_WRAP_FINISHES[item.finish as keyof typeof PARTIAL_WRAP_FINISHES]
+          ?.label ??
+        item.finish ??
+        "材質";
       return `${part}・${finish}`;
     })
     .join("、");
@@ -260,12 +269,33 @@ export default function AdminMembers() {
   const [previewsByMember, setPreviewsByMember] = useState<
     Record<number, AdminMemberPreview[]>
   >({});
-  const [previewLoadingMemberId, setPreviewLoadingMemberId] = useState<number | null>(null);
+  const [previewLoadingMemberId, setPreviewLoadingMemberId] = useState<
+    number | null
+  >(null);
   const [previewError, setPreviewError] = useState("");
   const [previewDrafts, setPreviewDrafts] = useState<
-    Record<number, { followUpStatus: string; adminTags: string; adminNote: string }>
+    Record<
+      number,
+      { followUpStatus: string; adminTags: string; adminNote: string }
+    >
   >({});
   const [savingPreviewId, setSavingPreviewId] = useState<number | null>(null);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantInput, setAssistantInput] = useState("");
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantError, setAssistantError] = useState("");
+  const [assistantMessages, setAssistantMessages] = useState<
+    CrmAssistantMessage[]
+  >([
+    {
+      role: "assistant",
+      content:
+        "你好，我是 Solution CRM 小助手。我可以整理會員專案、找出待跟進案件，並提供下一步建議。你可以問我：目前有哪些待報價案件？",
+    },
+  ]);
+  const [assistantActions, setAssistantActions] = useState<
+    Array<{ title: string; reason: string }>
+  >([]);
 
   const switchToAdminAccount = async () => {
     try {
@@ -395,9 +425,14 @@ export default function AdminMembers() {
     setPreviewLoadingMemberId(member.id);
     try {
       const result = await getAdminMemberPreviews(member.id);
-      setPreviewsByMember(current => ({ ...current, [member.id]: result.items }));
+      setPreviewsByMember(current => ({
+        ...current,
+        [member.id]: result.items,
+      }));
     } catch (error) {
-      setPreviewError(error instanceof Error ? error.message : "會員預覽資料暫時無法讀取。");
+      setPreviewError(
+        error instanceof Error ? error.message : "會員預覽資料暫時無法讀取。"
+      );
     } finally {
       setPreviewLoadingMemberId(null);
     }
@@ -412,7 +447,7 @@ export default function AdminMembers() {
 
   const updatePreviewDraft = (
     preview: AdminMemberPreview,
-    patch: Partial<ReturnType<typeof getPreviewDraft>>,
+    patch: Partial<ReturnType<typeof getPreviewDraft>>
   ) => {
     setPreviewDrafts(current => ({
       ...current,
@@ -420,12 +455,20 @@ export default function AdminMembers() {
     }));
   };
 
-  const savePreviewDetails = async (memberId: number, preview: AdminMemberPreview) => {
+  const savePreviewDetails = async (
+    memberId: number,
+    preview: AdminMemberPreview
+  ) => {
     const draft = getPreviewDraft(preview);
     setSavingPreviewId(preview.id);
     try {
       const response = await updateAdminMemberPreview(memberId, preview.id, {
-        followUpStatus: draft.followUpStatus as "new" | "contacted" | "quoted" | "booked" | "closed",
+        followUpStatus: draft.followUpStatus as
+          | "new"
+          | "contacted"
+          | "quoted"
+          | "booked"
+          | "closed",
         adminTags: draft.adminTags
           .split(",")
           .map(tag => tag.trim())
@@ -435,7 +478,7 @@ export default function AdminMembers() {
       setPreviewsByMember(current => ({
         ...current,
         [memberId]: (current[memberId] ?? []).map(item =>
-          item.id === preview.id ? response.item : item,
+          item.id === preview.id ? response.item : item
         ),
       }));
       setPreviewDrafts(current => {
@@ -452,6 +495,46 @@ export default function AdminMembers() {
       setSavingPreviewId(null);
     }
   };
+
+  const submitAssistantQuestion = async () => {
+    const question = assistantInput.trim();
+    if (!question || assistantLoading) return;
+    const nextMessages: CrmAssistantMessage[] = [
+      ...assistantMessages,
+      { role: "user", content: question },
+    ];
+    setAssistantMessages(nextMessages);
+    setAssistantInput("");
+    setAssistantError("");
+    setAssistantActions([]);
+    setAssistantLoading(true);
+    try {
+      const response = await askCrmAssistant(nextMessages);
+      setAssistantMessages(current => [
+        ...current,
+        { role: "assistant", content: response.answer },
+      ]);
+      setAssistantActions(
+        Array.isArray(response.suggestedActions)
+          ? response.suggestedActions.slice(0, 4)
+          : []
+      );
+    } catch (error) {
+      setAssistantError(
+        error instanceof Error
+          ? error.message
+          : "CRM AI 助手暫時無法回應，請稍後再試。"
+      );
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  const assistantQuickPrompts = [
+    "請列出目前所有待報價案件，並依跟進優先順序排列。",
+    "請找出超過 7 天沒有更新的會員專案。",
+    "請整理目前 CRM 中最值得今天聯絡的 3 位會員與原因。",
+  ];
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#0b0b0a] text-[#f3f4ee]">
@@ -640,12 +723,22 @@ export default function AdminMembers() {
                   <div className="flex gap-2">
                     <select
                       value={followUpStatusInput}
-                      onChange={event => setFollowUpStatusInput(event.target.value)}
+                      onChange={event =>
+                        setFollowUpStatusInput(event.target.value)
+                      }
                       className="h-10 min-w-0 flex-1 border border-white/15 bg-black/20 px-3 text-xs text-white outline-none focus:border-[#a9ff44]"
                     >
-                      <option value="" className="bg-[#10110e]">全部跟進狀態</option>
+                      <option value="" className="bg-[#10110e]">
+                        全部跟進狀態
+                      </option>
                       {FOLLOW_UP_STATUS_OPTIONS.map(([value, label]) => (
-                        <option key={value} value={value} className="bg-[#10110e]">{label}</option>
+                        <option
+                          key={value}
+                          value={value}
+                          className="bg-[#10110e]"
+                        >
+                          {label}
+                        </option>
                       ))}
                     </select>
                     <button
@@ -714,146 +807,374 @@ export default function AdminMembers() {
                           ) : (
                             members.map(member => (
                               <Fragment key={member.id}>
-                              <tr className="transition-colors hover:bg-white/[0.025]">
-                                <td className="px-5 py-4">
-                                  <p className="font-semibold text-white">
-                                    {displayName(member)}
-                                  </p>
-                                  <p className="mt-1 text-xs text-white/48">
-                                    {member.email || "未提供 Email"}
-                                  </p>
-                                </td>
-                                <td className="px-4 py-4">
-                                  <span className="border border-white/15 px-2 py-1 text-[0.62rem] font-bold tracking-[0.08em] text-white/62">
-                                    {displayLoginMethod(member.loginMethod)}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-4 text-xs text-white/60">
-                                  {formatDate(member.createdAt)}
-                                </td>
-                                <td className="px-4 py-4 text-xs text-white/60">
-                                  {formatDate(member.lastSignedIn)}
-                                </td>
-                                <td className="px-4 py-4 text-right font-display text-2xl text-white">
-                                  {member.previewCount}
-                                </td>
-                                <td className="px-5 py-4 text-right font-display text-2xl text-[#a9ff44]">
-                                  {member.savedPreviewCount}
-                                </td>
-                                <td className="px-5 py-4 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => void toggleMemberPreviews(member)}
-                                    className="inline-flex items-center gap-2 border border-[#a9ff44]/45 bg-[#a9ff44]/8 px-3 py-2 text-xs font-bold tracking-[0.08em] text-[#a9ff44] transition-colors hover:bg-[#a9ff44] hover:text-[#10130a]"
-                                  >
-                                    {previewLoadingMemberId === member.id ? <RefreshCcw size={13} className="animate-spin" /> : expandedMemberId === member.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                                    {expandedMemberId === member.id ? "收起" : "查看預覽"}
-                                  </button>
-                                </td>
-                              </tr>
-                              {expandedMemberId === member.id && (
-                                <tr>
-                                  <td colSpan={7} className="border-t border-[#a9ff44]/20 bg-[#0b0d0a] px-5 py-6">
-                                    {previewLoadingMemberId === member.id ? (
-                                      <p className="text-sm text-white/55">正在載入這位會員的預覽圖與配置…</p>
-                                    ) : previewError ? (
-                                      <div className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-amber-300 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
-                                        <span>{previewError}</span>
-                                        <button type="button" onClick={() => { setPreviewsByMember(current => { const next = { ...current }; delete next[member.id]; return next; }); setPreviewError(""); void toggleMemberPreviews(member); }} className="border border-amber-200/50 px-3 py-2 text-xs font-bold">再試一次</button>
-                                      </div>
-                                    ) : (previewsByMember[member.id] ?? []).length === 0 ? (
-                                      <div className="flex items-center gap-3 text-sm text-white/50"><ImageOff size={20} className="text-white/35" />這位會員目前沒有已保存的 AI 預覽。</div>
-                                    ) : (
-                                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                        {(previewsByMember[member.id] ?? []).map(preview => (
-                                          <article key={preview.id} className="overflow-hidden border border-white/12 bg-[#11130f]">
-                                            <div className="grid grid-cols-2 gap-px bg-white/10">
-                                              <div className="relative aspect-[4/3] bg-black/30">
-                                                {preview.originalImageUrl ? <img src={preview.originalImageUrl} alt={`${displayName(member)} 原始車照`} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center text-white/30"><ImageOff size={22} /></div>}
-                                                <span className="absolute left-2 top-2 bg-black/70 px-2 py-1 text-[0.55rem] font-bold tracking-[0.1em] text-white/75">原始車照</span>
-                                              </div>
-                                              <div className="relative aspect-[4/3] bg-black/30">
-                                                <img src={preview.previewUrl} alt={`${displayName(member)} ${preview.pantoneId} 預覽`} className="h-full w-full object-cover" loading="lazy" />
-                                                <span className="absolute left-2 top-2 bg-[#a9ff44] px-2 py-1 text-[0.55rem] font-bold tracking-[0.1em] text-[#10130a]">AI 預覽</span>
-                                              </div>
-                                            </div>
-                                            <div className="space-y-3 p-4">
-                                              <div className="flex items-start justify-between gap-3">
-                                                <div>
-                                                  <p className="text-[0.58rem] font-bold tracking-[0.14em] text-[#a9ff44]">COLOR / CONFIGURATION</p>
-                                                  <p className="mt-2 font-display text-2xl text-white">{preview.pantoneId}</p>
-                                                  <p className="mt-1 text-sm text-white/70">{displayPreviewColor(preview)}</p>
-                                                  {preview.catalogColor && <p className="mt-1 text-xs text-white/42">{preview.catalogColor.category} · {preview.catalogColor.categoryEn}</p>}
-                                                  {preview.vehicleModel && <p className="mt-2 text-xs text-white/55">車款：{preview.vehicleModel}</p>}
-                                                  <div className="mt-3 border-l-2 border-[#a9ff44]/65 bg-[#a9ff44]/6 px-3 py-2">
-                                                    <p className="text-[0.58rem] font-bold tracking-[0.12em] text-[#a9ff44]">AI VEHICLE IDENTIFICATION</p>
-                                                    <p className="mt-1 text-sm text-white/85">
-                                                      {preview.vehicleModelAi ?? "待人工確認／無法可靠辨識"}
-                                                    </p>
-                                                    <p className="mt-1 text-[0.62rem] text-white/45">
-                                                      {preview.vehicleModelAiSource === "ai" ? "AI 高信心辨識" : "AI 輔助結果，請人工覆核"} · 信心 {preview.vehicleModelAiConfidence}%
-                                                    </p>
-                                                    {preview.vehicleModelAiCandidates.length > 0 && preview.vehicleModelAiSource !== "ai" && (
-                                                      <p className="mt-1 text-[0.62rem] leading-5 text-white/42">
-                                                        候選：{preview.vehicleModelAiCandidates.map(candidate => `${candidate.label}（${candidate.confidence}%）`).join("、")}
-                                                      </p>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                                {preview.catalogColor?.swatch && <span className="h-9 w-9 shrink-0 border border-white/20" style={{ backgroundColor: preview.catalogColor.swatch }} title="型錄近似色" />}
-                                              </div>
-                                              <div className="space-y-2 border-t border-white/10 pt-3">
-                                                <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">跟進狀態</label>
-                                                <select
-                                                  value={getPreviewDraft(preview).followUpStatus}
-                                                  onChange={event => updatePreviewDraft(preview, { followUpStatus: event.target.value })}
-                                                  className="h-9 w-full border border-white/15 bg-black/20 px-2 text-xs text-white outline-none focus:border-[#a9ff44]"
-                                                >
-                                                  {FOLLOW_UP_STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value} className="bg-[#10110e]">{label}</option>)}
-                                                </select>
-                                                <p className="text-[0.6rem] text-white/38">目前：{followUpStatusLabel(getPreviewDraft(preview).followUpStatus)}</p>
-                                              </div>
-                                              <div className="space-y-2 border-t border-white/10 pt-3">
-                                                <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">標籤（逗號分隔）</label>
-                                                <input
-                                                  value={getPreviewDraft(preview).adminTags}
-                                                  onChange={event => updatePreviewDraft(preview, { adminTags: event.target.value })}
-                                                  placeholder="例如：高意向, Taycan, 待報價"
-                                                  className="h-9 w-full border border-white/15 bg-black/20 px-2 text-xs text-white outline-none placeholder:text-white/25 focus:border-[#a9ff44]"
-                                                />
-                                                <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">管理員備註</label>
-                                                <textarea
-                                                  value={getPreviewDraft(preview).adminNote}
-                                                  onChange={event => updatePreviewDraft(preview, { adminNote: event.target.value })}
-                                                  placeholder="記錄客戶需求、預算或聯絡結果"
-                                                  rows={3}
-                                                  className="w-full resize-y border border-white/15 bg-black/20 px-2 py-2 text-xs leading-5 text-white outline-none placeholder:text-white/25 focus:border-[#a9ff44]"
-                                                />
-                                                <button
-                                                  type="button"
-                                                  onClick={() => void savePreviewDetails(member.id, preview)}
-                                                  disabled={savingPreviewId === preview.id}
-                                                  className="inline-flex items-center gap-2 bg-[#a9ff44] px-3 py-2 text-[0.62rem] font-bold text-[#10130a] hover:bg-white disabled:opacity-50"
-                                                >
-                                                  <Save size={13} /> {savingPreviewId === preview.id ? "保存中…" : "保存跟進資料"}
-                                                </button>
-                                              </div>
-                                              <div className="border-t border-white/10 pt-3">
-                                                <div className="flex items-start gap-2 text-xs leading-5 text-white/65"><Settings2 size={14} className="mt-0.5 shrink-0 text-[#a9ff44]" /><span>{displayPreviewConfiguration(preview)}</span></div>
-                                                <p className="mt-2 text-xs text-white/42">{formatDate(preview.createdAt)} · {preview.outputSize || preview.aspectRatio}</p>
-                                              </div>
-                                              <div className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
-                                                <a href={preview.previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 border border-white/20 px-2 py-1.5 text-[0.62rem] font-bold text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"><ExternalLink size={12} />開啟生成圖</a>
-                                                {preview.originalImageUrl && <a href={preview.originalImageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 border border-white/20 px-2 py-1.5 text-[0.62rem] font-bold text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"><ExternalLink size={12} />開啟原圖</a>}
-                                              </div>
-                                            </div>
-                                          </article>
-                                        ))}
-                                      </div>
-                                    )}
+                                <tr className="transition-colors hover:bg-white/[0.025]">
+                                  <td className="px-5 py-4">
+                                    <p className="font-semibold text-white">
+                                      {displayName(member)}
+                                    </p>
+                                    <p className="mt-1 text-xs text-white/48">
+                                      {member.email || "未提供 Email"}
+                                    </p>
+                                  </td>
+                                  <td className="px-4 py-4">
+                                    <span className="border border-white/15 px-2 py-1 text-[0.62rem] font-bold tracking-[0.08em] text-white/62">
+                                      {displayLoginMethod(member.loginMethod)}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4 text-xs text-white/60">
+                                    {formatDate(member.createdAt)}
+                                  </td>
+                                  <td className="px-4 py-4 text-xs text-white/60">
+                                    {formatDate(member.lastSignedIn)}
+                                  </td>
+                                  <td className="px-4 py-4 text-right font-display text-2xl text-white">
+                                    {member.previewCount}
+                                  </td>
+                                  <td className="px-5 py-4 text-right font-display text-2xl text-[#a9ff44]">
+                                    {member.savedPreviewCount}
+                                  </td>
+                                  <td className="px-5 py-4 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void toggleMemberPreviews(member)
+                                      }
+                                      className="inline-flex items-center gap-2 border border-[#a9ff44]/45 bg-[#a9ff44]/8 px-3 py-2 text-xs font-bold tracking-[0.08em] text-[#a9ff44] transition-colors hover:bg-[#a9ff44] hover:text-[#10130a]"
+                                    >
+                                      {previewLoadingMemberId === member.id ? (
+                                        <RefreshCcw
+                                          size={13}
+                                          className="animate-spin"
+                                        />
+                                      ) : expandedMemberId === member.id ? (
+                                        <ChevronUp size={13} />
+                                      ) : (
+                                        <ChevronDown size={13} />
+                                      )}
+                                      {expandedMemberId === member.id
+                                        ? "收起"
+                                        : "查看預覽"}
+                                    </button>
                                   </td>
                                 </tr>
-                              )}
+                                {expandedMemberId === member.id && (
+                                  <tr>
+                                    <td
+                                      colSpan={7}
+                                      className="border-t border-[#a9ff44]/20 bg-[#0b0d0a] px-5 py-6"
+                                    >
+                                      {previewLoadingMemberId === member.id ? (
+                                        <p className="text-sm text-white/55">
+                                          正在載入這位會員的預覽圖與配置…
+                                        </p>
+                                      ) : previewError ? (
+                                        <div className="flex flex-wrap items-center justify-between gap-3 border-l-2 border-amber-300 bg-amber-300/10 px-4 py-3 text-sm text-amber-50">
+                                          <span>{previewError}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPreviewsByMember(current => {
+                                                const next = { ...current };
+                                                delete next[member.id];
+                                                return next;
+                                              });
+                                              setPreviewError("");
+                                              void toggleMemberPreviews(member);
+                                            }}
+                                            className="border border-amber-200/50 px-3 py-2 text-xs font-bold"
+                                          >
+                                            再試一次
+                                          </button>
+                                        </div>
+                                      ) : (previewsByMember[member.id] ?? [])
+                                          .length === 0 ? (
+                                        <div className="flex items-center gap-3 text-sm text-white/50">
+                                          <ImageOff
+                                            size={20}
+                                            className="text-white/35"
+                                          />
+                                          這位會員目前沒有已保存的 AI 預覽。
+                                        </div>
+                                      ) : (
+                                        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                          {(
+                                            previewsByMember[member.id] ?? []
+                                          ).map(preview => (
+                                            <article
+                                              key={preview.id}
+                                              className="overflow-hidden border border-white/12 bg-[#11130f]"
+                                            >
+                                              <div className="grid grid-cols-2 gap-px bg-white/10">
+                                                <div className="relative aspect-[4/3] bg-black/30">
+                                                  {preview.originalImageUrl ? (
+                                                    <img
+                                                      src={
+                                                        preview.originalImageUrl
+                                                      }
+                                                      alt={`${displayName(member)} 原始車照`}
+                                                      className="h-full w-full object-cover"
+                                                      loading="lazy"
+                                                    />
+                                                  ) : (
+                                                    <div className="flex h-full items-center justify-center text-white/30">
+                                                      <ImageOff size={22} />
+                                                    </div>
+                                                  )}
+                                                  <span className="absolute left-2 top-2 bg-black/70 px-2 py-1 text-[0.55rem] font-bold tracking-[0.1em] text-white/75">
+                                                    原始車照
+                                                  </span>
+                                                </div>
+                                                <div className="relative aspect-[4/3] bg-black/30">
+                                                  <img
+                                                    src={preview.previewUrl}
+                                                    alt={`${displayName(member)} ${preview.pantoneId} 預覽`}
+                                                    className="h-full w-full object-cover"
+                                                    loading="lazy"
+                                                  />
+                                                  <span className="absolute left-2 top-2 bg-[#a9ff44] px-2 py-1 text-[0.55rem] font-bold tracking-[0.1em] text-[#10130a]">
+                                                    AI 預覽
+                                                  </span>
+                                                </div>
+                                              </div>
+                                              <div className="space-y-3 p-4">
+                                                <div className="flex items-start justify-between gap-3">
+                                                  <div>
+                                                    <p className="text-[0.58rem] font-bold tracking-[0.14em] text-[#a9ff44]">
+                                                      COLOR / CONFIGURATION
+                                                    </p>
+                                                    <p className="mt-2 font-display text-2xl text-white">
+                                                      {preview.pantoneId}
+                                                    </p>
+                                                    <p className="mt-1 text-sm text-white/70">
+                                                      {displayPreviewColor(
+                                                        preview
+                                                      )}
+                                                    </p>
+                                                    {preview.catalogColor && (
+                                                      <p className="mt-1 text-xs text-white/42">
+                                                        {
+                                                          preview.catalogColor
+                                                            .category
+                                                        }{" "}
+                                                        ·{" "}
+                                                        {
+                                                          preview.catalogColor
+                                                            .categoryEn
+                                                        }
+                                                      </p>
+                                                    )}
+                                                    {preview.vehicleModel && (
+                                                      <p className="mt-2 text-xs text-white/55">
+                                                        車款：
+                                                        {preview.vehicleModel}
+                                                      </p>
+                                                    )}
+                                                    <div className="mt-3 border-l-2 border-[#a9ff44]/65 bg-[#a9ff44]/6 px-3 py-2">
+                                                      <p className="text-[0.58rem] font-bold tracking-[0.12em] text-[#a9ff44]">
+                                                        AI VEHICLE
+                                                        IDENTIFICATION
+                                                      </p>
+                                                      <p className="mt-1 text-sm text-white/85">
+                                                        {preview.vehicleModelAi ??
+                                                          "待人工確認／無法可靠辨識"}
+                                                      </p>
+                                                      <p className="mt-1 text-[0.62rem] text-white/45">
+                                                        {preview.vehicleModelAiSource ===
+                                                        "ai"
+                                                          ? "AI 高信心辨識"
+                                                          : "AI 輔助結果，請人工覆核"}{" "}
+                                                        · 信心{" "}
+                                                        {
+                                                          preview.vehicleModelAiConfidence
+                                                        }
+                                                        %
+                                                      </p>
+                                                      {preview
+                                                        .vehicleModelAiCandidates
+                                                        .length > 0 &&
+                                                        preview.vehicleModelAiSource !==
+                                                          "ai" && (
+                                                          <p className="mt-1 text-[0.62rem] leading-5 text-white/42">
+                                                            候選：
+                                                            {preview.vehicleModelAiCandidates
+                                                              .map(
+                                                                candidate =>
+                                                                  `${candidate.label}（${candidate.confidence}%）`
+                                                              )
+                                                              .join("、")}
+                                                          </p>
+                                                        )}
+                                                    </div>
+                                                  </div>
+                                                  {preview.catalogColor
+                                                    ?.swatch && (
+                                                    <span
+                                                      className="h-9 w-9 shrink-0 border border-white/20"
+                                                      style={{
+                                                        backgroundColor:
+                                                          preview.catalogColor
+                                                            .swatch,
+                                                      }}
+                                                      title="型錄近似色"
+                                                    />
+                                                  )}
+                                                </div>
+                                                <div className="space-y-2 border-t border-white/10 pt-3">
+                                                  <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">
+                                                    跟進狀態
+                                                  </label>
+                                                  <select
+                                                    value={
+                                                      getPreviewDraft(preview)
+                                                        .followUpStatus
+                                                    }
+                                                    onChange={event =>
+                                                      updatePreviewDraft(
+                                                        preview,
+                                                        {
+                                                          followUpStatus:
+                                                            event.target.value,
+                                                        }
+                                                      )
+                                                    }
+                                                    className="h-9 w-full border border-white/15 bg-black/20 px-2 text-xs text-white outline-none focus:border-[#a9ff44]"
+                                                  >
+                                                    {FOLLOW_UP_STATUS_OPTIONS.map(
+                                                      ([value, label]) => (
+                                                        <option
+                                                          key={value}
+                                                          value={value}
+                                                          className="bg-[#10110e]"
+                                                        >
+                                                          {label}
+                                                        </option>
+                                                      )
+                                                    )}
+                                                  </select>
+                                                  <p className="text-[0.6rem] text-white/38">
+                                                    目前：
+                                                    {followUpStatusLabel(
+                                                      getPreviewDraft(preview)
+                                                        .followUpStatus
+                                                    )}
+                                                  </p>
+                                                </div>
+                                                <div className="space-y-2 border-t border-white/10 pt-3">
+                                                  <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">
+                                                    標籤（逗號分隔）
+                                                  </label>
+                                                  <input
+                                                    value={
+                                                      getPreviewDraft(preview)
+                                                        .adminTags
+                                                    }
+                                                    onChange={event =>
+                                                      updatePreviewDraft(
+                                                        preview,
+                                                        {
+                                                          adminTags:
+                                                            event.target.value,
+                                                        }
+                                                      )
+                                                    }
+                                                    placeholder="例如：高意向, Taycan, 待報價"
+                                                    className="h-9 w-full border border-white/15 bg-black/20 px-2 text-xs text-white outline-none placeholder:text-white/25 focus:border-[#a9ff44]"
+                                                  />
+                                                  <label className="block text-[0.58rem] font-bold tracking-[0.12em] text-white/45">
+                                                    管理員備註
+                                                  </label>
+                                                  <textarea
+                                                    value={
+                                                      getPreviewDraft(preview)
+                                                        .adminNote
+                                                    }
+                                                    onChange={event =>
+                                                      updatePreviewDraft(
+                                                        preview,
+                                                        {
+                                                          adminNote:
+                                                            event.target.value,
+                                                        }
+                                                      )
+                                                    }
+                                                    placeholder="記錄客戶需求、預算或聯絡結果"
+                                                    rows={3}
+                                                    className="w-full resize-y border border-white/15 bg-black/20 px-2 py-2 text-xs leading-5 text-white outline-none placeholder:text-white/25 focus:border-[#a9ff44]"
+                                                  />
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      void savePreviewDetails(
+                                                        member.id,
+                                                        preview
+                                                      )
+                                                    }
+                                                    disabled={
+                                                      savingPreviewId ===
+                                                      preview.id
+                                                    }
+                                                    className="inline-flex items-center gap-2 bg-[#a9ff44] px-3 py-2 text-[0.62rem] font-bold text-[#10130a] hover:bg-white disabled:opacity-50"
+                                                  >
+                                                    <Save size={13} />{" "}
+                                                    {savingPreviewId ===
+                                                    preview.id
+                                                      ? "保存中…"
+                                                      : "保存跟進資料"}
+                                                  </button>
+                                                </div>
+                                                <div className="border-t border-white/10 pt-3">
+                                                  <div className="flex items-start gap-2 text-xs leading-5 text-white/65">
+                                                    <Settings2
+                                                      size={14}
+                                                      className="mt-0.5 shrink-0 text-[#a9ff44]"
+                                                    />
+                                                    <span>
+                                                      {displayPreviewConfiguration(
+                                                        preview
+                                                      )}
+                                                    </span>
+                                                  </div>
+                                                  <p className="mt-2 text-xs text-white/42">
+                                                    {formatDate(
+                                                      preview.createdAt
+                                                    )}{" "}
+                                                    ·{" "}
+                                                    {preview.outputSize ||
+                                                      preview.aspectRatio}
+                                                  </p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
+                                                  <a
+                                                    href={preview.previewUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1 border border-white/20 px-2 py-1.5 text-[0.62rem] font-bold text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"
+                                                  >
+                                                    <ExternalLink size={12} />
+                                                    開啟生成圖
+                                                  </a>
+                                                  {preview.originalImageUrl && (
+                                                    <a
+                                                      href={
+                                                        preview.originalImageUrl
+                                                      }
+                                                      target="_blank"
+                                                      rel="noreferrer"
+                                                      className="inline-flex items-center gap-1 border border-white/20 px-2 py-1.5 text-[0.62rem] font-bold text-white/65 hover:border-[#a9ff44] hover:text-[#a9ff44]"
+                                                    >
+                                                      <ExternalLink size={12} />
+                                                      開啟原圖
+                                                    </a>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </article>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
                               </Fragment>
                             ))
                           )}
@@ -865,6 +1186,150 @@ export default function AdminMembers() {
               </div>
             </section>
           </main>
+          <div className="fixed bottom-5 right-5 z-50 sm:bottom-7 sm:right-7">
+            {assistantOpen ? (
+              <section className="w-[min(430px,calc(100vw-2rem))] overflow-hidden border border-[#a9ff44]/35 bg-[#11130f] shadow-[0_20px_70px_rgba(0,0,0,0.55)]">
+                <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-[#a9ff44] px-4 py-3 text-[#10130a]">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#10130a] text-[#a9ff44]">
+                      <Bot size={17} />
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold tracking-[0.08em]">
+                        CRM 小助手
+                      </p>
+                      <p className="mt-0.5 text-[0.58rem] font-semibold tracking-[0.12em] text-[#10130a]/65">
+                        READ-ONLY ANALYSIS · ADMIN ONLY
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAssistantOpen(false)}
+                    className="border border-[#10130a]/25 px-2 py-1 text-xs font-bold transition-colors hover:bg-white"
+                    aria-label="收起 CRM AI 小助手"
+                  >
+                    收起
+                  </button>
+                </div>
+                <div className="max-h-[min(430px,55vh)] space-y-3 overflow-y-auto px-4 py-4">
+                  {assistantMessages.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={
+                        message.role === "user"
+                          ? "flex justify-end"
+                          : "flex justify-start"
+                      }
+                    >
+                      <div
+                        className={
+                          message.role === "user"
+                            ? "max-w-[88%] bg-[#a9ff44] px-3 py-2 text-sm leading-6 text-[#10130a]"
+                            : "max-w-[92%] border border-white/10 bg-black/20 px-3 py-2 text-sm leading-6 text-white/78"
+                        }
+                      >
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {assistantLoading && (
+                    <div className="flex items-center gap-2 text-xs text-white/45">
+                      <LoaderCircle
+                        size={14}
+                        className="animate-spin text-[#a9ff44]"
+                      />
+                      正在整理會員與專案資料…
+                    </div>
+                  )}
+                  {assistantError && (
+                    <div className="border-l-2 border-amber-300 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-50">
+                      {assistantError}
+                    </div>
+                  )}
+                  {assistantActions.length > 0 && (
+                    <div className="border-t border-white/10 pt-3">
+                      <p className="text-[0.58rem] font-bold tracking-[0.13em] text-[#a9ff44]">
+                        AI 建議下一步（請手動執行）
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {assistantActions.map((action, index) => (
+                          <div
+                            key={`${action.title}-${index}`}
+                            className="border border-white/10 bg-black/15 px-3 py-2"
+                          >
+                            <p className="text-xs font-semibold text-white/80">
+                              {action.title}
+                            </p>
+                            <p className="mt-1 text-[0.68rem] leading-5 text-white/45">
+                              {action.reason}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="border-t border-white/10 px-4 py-3">
+                  <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+                    {assistantQuickPrompts.map(prompt => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => setAssistantInput(prompt)}
+                        className="shrink-0 border border-white/15 px-2 py-1.5 text-[0.62rem] text-white/55 transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44]"
+                      >
+                        {prompt.replace("請", "").replace("。", "")}
+                      </button>
+                    ))}
+                  </div>
+                  <form
+                    onSubmit={event => {
+                      event.preventDefault();
+                      void submitAssistantQuestion();
+                    }}
+                    className="flex items-end gap-2"
+                  >
+                    <textarea
+                      value={assistantInput}
+                      onChange={event => setAssistantInput(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          void submitAssistantQuestion();
+                        }
+                      }}
+                      placeholder="輸入問題，Enter 送出…"
+                      rows={2}
+                      maxLength={2000}
+                      className="min-h-12 flex-1 resize-none border border-white/15 bg-black/25 px-3 py-2 text-sm leading-5 text-white outline-none placeholder:text-white/30 focus:border-[#a9ff44]"
+                    />
+                    <button
+                      type="submit"
+                      disabled={assistantLoading || !assistantInput.trim()}
+                      className="flex h-12 w-12 shrink-0 items-center justify-center bg-[#a9ff44] text-[#10130a] transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label="送出問題"
+                    >
+                      <Send size={16} />
+                    </button>
+                  </form>
+                  <p className="mt-2 text-[0.6rem] leading-5 text-white/35">
+                    AI 僅讀取 CRM
+                    快照並提供建議，不會自動修改會員資料或發送訊息。
+                  </p>
+                </div>
+              </section>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAssistantOpen(true)}
+                className="flex items-center gap-3 rounded-full border border-[#a9ff44]/55 bg-[#11130f] px-4 py-3 text-sm font-bold text-[#a9ff44] shadow-[0_12px_45px_rgba(0,0,0,0.45)] transition-colors hover:bg-[#a9ff44] hover:text-[#10130a]"
+              >
+                <Bot size={18} />
+                CRM AI 小助手
+              </button>
+            )}
+          </div>
           <footer className="border-t border-white/10 bg-[#090909] px-5 py-5 sm:px-8 lg:px-10">
             <div className="mx-auto flex max-w-[1600px] flex-col gap-2 text-[0.6rem] font-medium tracking-[0.13em] text-white/35 sm:flex-row sm:items-center sm:justify-between">
               <span>© 2026 SOLUTION AUTOMOTIVE STUDIO</span>
