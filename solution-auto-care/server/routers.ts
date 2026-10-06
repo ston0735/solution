@@ -28,6 +28,7 @@ import {
   getCachedWrapPreview,
   getClientIp,
   hashClientIp,
+  isWrapPreviewRateLimitBypassed,
   saveCachedWrapPreview,
   type WrapPreviewUsageClaim,
 } from "./wrapPreviewLimits";
@@ -145,13 +146,12 @@ export const appRouter = router({
             await getCachedWrapPreview<WrapPreviewResponse>(cacheKey);
           if (cached) return cached;
 
-          const hasUnlimitedAccess = await hasUnlimitedMemberAccess(
-            ctx.req,
-            ctx.user
-          );
-          usageClaim = await claimWrapPreviewGeneration(ipHash, {
-            skipDailyLimit: hasUnlimitedAccess,
-          });
+          if (!isWrapPreviewRateLimitBypassed(clientIp)) {
+            const hasUnlimitedAccess = await hasUnlimitedMemberAccess(ctx.req);
+            usageClaim = await claimWrapPreviewGeneration(ipHash, {
+              skipDailyLimit: hasUnlimitedAccess,
+            });
+          }
           const pantoneId = assertPantoneId(input.pantoneId);
           const { buffer, mimeType } = decodeVehicleImage(input.imageBase64);
           const vehicleImageDimensions =

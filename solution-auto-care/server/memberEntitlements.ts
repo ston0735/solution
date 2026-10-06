@@ -1,5 +1,4 @@
 import type { Request } from "express";
-import type { User } from "../drizzle/schema";
 
 const MEMBER_AUTH_BRIDGE_ORIGIN = "https://solutionauth-zcgxwa4c.manus.space";
 const BRIDGE_SESSION_COOKIE = "webdev_app_session";
@@ -40,12 +39,7 @@ function readBridgeIdentity(payload: unknown) {
  * Resolve the bridge's HttpOnly session server-to-server so an email cannot be
  * spoofed in the image-generation request body or query string.
  */
-export async function hasUnlimitedMemberAccess(
-  request: Request,
-  user: User | null
-) {
-  if (isUnlimitedMemberEmail(user?.email)) return true;
-
+export async function hasUnlimitedMemberAccess(request: Request) {
   const session = readCookie(request, BRIDGE_SESSION_COOKIE);
   if (!session) return false;
 
@@ -53,6 +47,7 @@ export async function hasUnlimitedMemberAccess(
     const response = await fetch(
       `${MEMBER_AUTH_BRIDGE_ORIGIN}/api/trpc/auth.me`,
       {
+        cache: "no-store",
         headers: {
           Accept: "application/json",
           Cookie: `${BRIDGE_SESSION_COOKIE}=${encodeURIComponent(session)}`,

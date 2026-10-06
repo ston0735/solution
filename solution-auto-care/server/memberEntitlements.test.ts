@@ -17,6 +17,17 @@ describe("member generation entitlements", () => {
     expect(isUnlimitedMemberEmail("other@example.com")).toBe(false);
   });
 
+  it("does not contact the bridge when no member session is present", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const request = {
+      headers: { cookie: "app_session_id=legacy-session" },
+    } as unknown as Request;
+
+    await expect(hasUnlimitedMemberAccess(request)).resolves.toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
+  });
+
   it("resolves the allowlisted email from the bridge session server-side", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
@@ -31,7 +42,7 @@ describe("member generation entitlements", () => {
       headers: { cookie: "webdev_app_session=opaque-session" },
     } as unknown as Request;
 
-    await expect(hasUnlimitedMemberAccess(request, null)).resolves.toBe(true);
+    await expect(hasUnlimitedMemberAccess(request)).resolves.toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       "https://solutionauth-zcgxwa4c.manus.space/api/trpc/auth.me",
       expect.objectContaining({

@@ -48,6 +48,28 @@ export function getClientIp(headers: IncomingHttpHeaders, fallbackIp?: string) {
   return candidate.slice(0, 128);
 }
 
+export function getWrapPreviewRateLimitBypassIps(
+  value = ENV.wrapPreviewRateLimitBypassIps
+) {
+  return value
+    .split(",")
+    .map(ip => ip.trim())
+    .filter(
+      ip =>
+        ip.length > 0 &&
+        ip !== "unknown" &&
+        !ip.includes("*") &&
+        !ip.includes("/")
+    );
+}
+
+export function isWrapPreviewRateLimitBypassed(
+  ip: string,
+  bypassIps = getWrapPreviewRateLimitBypassIps()
+) {
+  return ip !== "unknown" && bypassIps.includes(ip);
+}
+
 export function hashClientIp(ip: string, salt = getSecretSalt()) {
   return hash(`${salt}:wrap-preview-ip:${ip}`);
 }

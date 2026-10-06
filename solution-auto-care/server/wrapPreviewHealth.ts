@@ -1,6 +1,10 @@
 import { OPENAI_IMAGE_MODEL } from "./_core/imageGeneration";
 import { ENV } from "./_core/env";
-import { WRAP_PREVIEW_CONCURRENT_LIMIT, WRAP_PREVIEW_DAILY_LIMIT } from "./wrapPreviewLimits";
+import {
+  getWrapPreviewRateLimitBypassIps,
+  WRAP_PREVIEW_CONCURRENT_LIMIT,
+  WRAP_PREVIEW_DAILY_LIMIT,
+} from "./wrapPreviewLimits";
 
 /** Safe operational metadata for validating the deployed preview service. */
 export function getWrapPreviewHealth() {
@@ -11,6 +15,7 @@ export function getWrapPreviewHealth() {
     limits: {
       dailyGenerationsPerIp: WRAP_PREVIEW_DAILY_LIMIT,
       concurrentGenerationsPerIp: WRAP_PREVIEW_CONCURRENT_LIMIT,
+      rateLimitBypassConfigured: getWrapPreviewRateLimitBypassIps().length > 0,
     },
   };
 }

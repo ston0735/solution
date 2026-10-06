@@ -10,6 +10,7 @@ describe("wrap preview health", () => {
       limits: {
         dailyGenerationsPerIp: 2,
         concurrentGenerationsPerIp: 1,
+        rateLimitBypassConfigured: false,
       },
     });
   });
