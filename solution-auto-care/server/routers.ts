@@ -32,6 +32,7 @@ import {
   type WrapPreviewUsageClaim,
 } from "./wrapPreviewLimits";
 import { getWrapPreviewHealth } from "./wrapPreviewHealth";
+import { hasUnlimitedMemberAccess } from "./memberEntitlements";
 import {
   getMaterialCardAssetPath,
   getMaterialCardRawUrl,
@@ -144,7 +145,13 @@ export const appRouter = router({
             await getCachedWrapPreview<WrapPreviewResponse>(cacheKey);
           if (cached) return cached;
 
-          usageClaim = await claimWrapPreviewGeneration(ipHash);
+          const hasUnlimitedAccess = await hasUnlimitedMemberAccess(
+            ctx.req,
+            ctx.user
+          );
+          usageClaim = await claimWrapPreviewGeneration(ipHash, {
+            skipDailyLimit: hasUnlimitedAccess,
+          });
           const pantoneId = assertPantoneId(input.pantoneId);
           const { buffer, mimeType } = decodeVehicleImage(input.imageBase64);
           const vehicleImageDimensions =

@@ -23,6 +23,10 @@ export type WrapPreviewUsageClaim = {
   usageDay: string;
 };
 
+export type WrapPreviewGenerationOptions = {
+  skipDailyLimit?: boolean;
+};
+
 function hash(value: string) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -39,7 +43,8 @@ export function getUtcUsageDay(now = new Date()) {
 export function getClientIp(headers: IncomingHttpHeaders, fallbackIp?: string) {
   const forwarded = headers["x-forwarded-for"];
   const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const candidate = firstForwarded?.split(",")[0]?.trim() || fallbackIp || "unknown";
+  const candidate =
+    firstForwarded?.split(",")[0]?.trim() || fallbackIp || "unknown";
   return candidate.slice(0, 128);
 }
 
@@ -47,9 +52,14 @@ export function hashClientIp(ip: string, salt = getSecretSalt()) {
   return hash(`${salt}:wrap-preview-ip:${ip}`);
 }
 
-export function createWrapPreviewCacheKey(ipHash: string, input: PreviewCacheInput) {
+export function createWrapPreviewCacheKey(
+  ipHash: string,
+  input: PreviewCacheInput
+) {
   const customization = Array.isArray(input.partialWrapCustomizations)
-    ? [...input.partialWrapCustomizations].sort((first, second) => JSON.stringify(first).localeCompare(JSON.stringify(second)))
+    ? [...input.partialWrapCustomizations].sort((first, second) =>
+        JSON.stringify(first).localeCompare(JSON.stringify(second))
+      )
     : input.partialWrapCustomizations;
   const fingerprint = JSON.stringify({
     pantoneId: input.pantoneId.trim().toUpperCase(),
@@ -61,18 +71,28 @@ export function createWrapPreviewCacheKey(ipHash: string, input: PreviewCacheInp
 }
 
 function getAffectedRows(result: unknown) {
-  if (Array.isArray(result)) return Number((result[0] as ResultSetHeader | undefined)?.affectedRows ?? 0);
+  if (Array.isArray(result))
+    return Number(
+      (result[0] as ResultSetHeader | undefined)?.affectedRows ?? 0
+    );
   return Number((result as ResultSetHeader | undefined)?.affectedRows ?? 0);
 }
 
-export async function getCachedWrapPreview<T>(cacheKey: string): Promise<T | undefined> {
+export async function getCachedWrapPreview<T>(
+  cacheKey: string
+): Promise<T | undefined> {
   const db = await getDb();
   if (!db) throw new Error("PREVIEW_LIMITER_UNAVAILABLE");
 
   const rows = await db
     .select({ responseJson: wrapPreviewCache.responseJson })
     .from(wrapPreviewCache)
-    .where(and(eq(wrapPreviewCache.cacheKey, cacheKey), gt(wrapPreviewCache.expiresAt, new Date())))
+    .where(
+      and(
+        eq(wrapPreviewCache.cacheKey, cacheKey),
+        gt(wrapPreviewCache.expiresAt, new Date())
+      )
+    )
     .limit(1);
 
   if (!rows[0]?.responseJson) return undefined;
@@ -83,7 +103,10 @@ export async function getCachedWrapPreview<T>(cacheKey: string): Promise<T | und
   }
 }
 
-export async function saveCachedWrapPreview(cacheKey: string, response: unknown) {
+export async function saveCachedWrapPreview(
+  cacheKey: string,
+  response: unknown
+) {
   const db = await getDb();
   if (!db) throw new Error("PREVIEW_LIMITER_UNAVAILABLE");
 
@@ -91,11 +114,26 @@ export async function saveCachedWrapPreview(cacheKey: string, response: unknown)
   const expiresAt = new Date(now.getTime() + WRAP_PREVIEW_CACHE_TTL_MS);
   await db
     .insert(wrapPreviewCache)
-    .values({ cacheKey, responseJson: JSON.stringify(response), expiresAt, createdAt: now, updatedAt: now })
-    .onDuplicateKeyUpdate({ set: { responseJson: JSON.stringify(response), expiresAt, updatedAt: now } });
+    .values({
+      cacheKey,
+      responseJson: JSON.stringify(response),
+      expiresAt,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        responseJson: JSON.stringify(response),
+        expiresAt,
+        updatedAt: now,
+      },
+    });
 }
 
-export async function claimWrapPreviewGeneration(ipHash: string): Promise<WrapPreviewUsageClaim> {
+export async function claimWrapPreviewGeneration(
+  ipHash: string,
+  options: WrapPreviewGenerationOptions = {}
+): Promise<WrapPreviewUsageClaim> {
   const db = await getDb();
   if (!db) throw new Error("PREVIEW_LIMITER_UNAVAILABLE");
 
@@ -105,47 +143,84 @@ export async function claimWrapPreviewGeneration(ipHash: string): Promise<WrapPr
 
   await db
     .insert(wrapPreviewUsage)
-    .values({ ipHash, usageDay, completedCount: 0, activeCount: 0, activeSince: null, createdAt: now, updatedAt: now })
+    .values({
+      ipHash,
+      usageDay,
+      completedCount: 0,
+      activeCount: 0,
+      activeSince: null,
+      createdAt: now,
+      updatedAt: now,
+    })
     .onDuplicateKeyUpdate({ set: { updatedAt: now } });
 
+  const conditions = [
+    eq(wrapPreviewUsage.ipHash, ipHash),
+    eq(wrapPreviewUsage.usageDay, usageDay),
+    options.skipDailyLimit
+      ? undefined
+      : lt(wrapPreviewUsage.completedCount, WRAP_PREVIEW_DAILY_LIMIT),
+    or(
+      lt(wrapPreviewUsage.activeCount, WRAP_PREVIEW_CONCURRENT_LIMIT),
+      lt(wrapPreviewUsage.activeSince, staleAt)
+    ),
+  ].filter((condition): condition is NonNullable<typeof condition> =>
+    Boolean(condition)
+  );
   const result = await db
     .update(wrapPreviewUsage)
     .set({ activeCount: 1, activeSince: now, updatedAt: now })
-    .where(
-      and(
-        eq(wrapPreviewUsage.ipHash, ipHash),
-        eq(wrapPreviewUsage.usageDay, usageDay),
-        lt(wrapPreviewUsage.completedCount, WRAP_PREVIEW_DAILY_LIMIT),
-        or(lt(wrapPreviewUsage.activeCount, WRAP_PREVIEW_CONCURRENT_LIMIT), lt(wrapPreviewUsage.activeSince, staleAt)),
-      ),
-    );
+    .where(and(...conditions));
 
   if (getAffectedRows(result) !== 1) {
     const rows = await db
       .select({ completedCount: wrapPreviewUsage.completedCount })
       .from(wrapPreviewUsage)
-      .where(and(eq(wrapPreviewUsage.ipHash, ipHash), eq(wrapPreviewUsage.usageDay, usageDay)))
+      .where(
+        and(
+          eq(wrapPreviewUsage.ipHash, ipHash),
+          eq(wrapPreviewUsage.usageDay, usageDay)
+        )
+      )
       .limit(1);
-    if ((rows[0]?.completedCount ?? 0) >= WRAP_PREVIEW_DAILY_LIMIT) throw new Error("PREVIEW_DAILY_LIMIT");
+    if (
+      !options.skipDailyLimit &&
+      (rows[0]?.completedCount ?? 0) >= WRAP_PREVIEW_DAILY_LIMIT
+    )
+      throw new Error("PREVIEW_DAILY_LIMIT");
     throw new Error("PREVIEW_CONCURRENT_LIMIT");
   }
 
   return { ipHash, usageDay };
 }
 
-export async function finishWrapPreviewGeneration(claim: WrapPreviewUsageClaim, completed: boolean) {
+export async function finishWrapPreviewGeneration(
+  claim: WrapPreviewUsageClaim,
+  completed: boolean
+) {
   const db = await getDb();
   if (!db) return;
 
-  const where = and(eq(wrapPreviewUsage.ipHash, claim.ipHash), eq(wrapPreviewUsage.usageDay, claim.usageDay));
+  const where = and(
+    eq(wrapPreviewUsage.ipHash, claim.ipHash),
+    eq(wrapPreviewUsage.usageDay, claim.usageDay)
+  );
   const now = new Date();
   if (completed) {
     await db
       .update(wrapPreviewUsage)
-      .set({ activeCount: 0, activeSince: null, completedCount: sql`${wrapPreviewUsage.completedCount} + 1`, updatedAt: now })
+      .set({
+        activeCount: 0,
+        activeSince: null,
+        completedCount: sql`${wrapPreviewUsage.completedCount} + 1`,
+        updatedAt: now,
+      })
       .where(where);
     return;
   }
 
-  await db.update(wrapPreviewUsage).set({ activeCount: 0, activeSince: null, updatedAt: now }).where(where);
+  await db
+    .update(wrapPreviewUsage)
+    .set({ activeCount: 0, activeSince: null, updatedAt: now })
+    .where(where);
 }
