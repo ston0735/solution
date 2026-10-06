@@ -1,4 +1,7 @@
-import type { PreviewHistoryItem } from "./memberHistory";
+import {
+  normalizePreviewHistoryItem,
+  type PreviewHistoryItem,
+} from "./memberHistory";
 
 export type AdminMember = {
   id: number;
@@ -51,7 +54,9 @@ async function readError(response: Response, fallback: string) {
   }
 }
 
-export async function getAdminMemberDirectory(filters: AdminMemberFilters = {}) {
+export async function getAdminMemberDirectory(
+  filters: AdminMemberFilters = {}
+) {
   const params = new URLSearchParams({ limit: "200" });
   for (const [key, value] of Object.entries(filters)) {
     if (value?.trim()) params.set(key, value.trim());
@@ -78,10 +83,17 @@ export async function getAdminMemberPreviews(memberId: number) {
   if (!response.ok) {
     throw new AdminMemberDirectoryError(
       await readError(response, "這位會員的預覽資料暫時無法讀取。"),
-      response.status,
+      response.status
     );
   }
-  return (await response.json()) as { items: AdminMemberPreview[] };
+  const payload = (await response.json()) as Partial<{
+    items: AdminMemberPreview[];
+  }>;
+  return {
+    items: Array.isArray(payload.items)
+      ? payload.items.map(normalizePreviewHistoryItem)
+      : [],
+  };
 }
 
 export type AdminPreviewUpdate = {
@@ -93,7 +105,7 @@ export type AdminPreviewUpdate = {
 export async function updateAdminMemberPreview(
   memberId: number,
   previewId: number,
-  input: AdminPreviewUpdate,
+  input: AdminPreviewUpdate
 ) {
   const response = await fetch(
     `/api/admin/members/${memberId}/previews/${previewId}`,
@@ -103,13 +115,17 @@ export async function updateAdminMemberPreview(
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
-    },
+    }
   );
   if (!response.ok) {
     throw new AdminMemberDirectoryError(
       await readError(response, "預覽跟進資料暫時無法更新。"),
-      response.status,
+      response.status
     );
   }
-  return (await response.json()) as { item: AdminMemberPreview };
+  const payload = (await response.json()) as { item?: AdminMemberPreview };
+  if (!payload.item) {
+    throw new AdminMemberDirectoryError("CRM 回傳的預覽資料格式不完整。", 502);
+  }
+  return { item: normalizePreviewHistoryItem(payload.item) };
 }
