@@ -164,6 +164,11 @@ function VehicleStudioWorkspace({ name, email, onLogout }: { name: string; email
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.22;
         mountRef.current.appendChild(renderer.domElement);
+        renderer.domElement.style.display = "block";
+        renderer.domElement.style.width = "100%";
+        renderer.domElement.style.height = "100%";
+        renderer.domElement.style.touchAction = "none";
+        renderer.domElement.setAttribute("aria-label", "360° 車輛預覽");
 
         camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
         camera.position.set(7.4, 4.3, 8.2);
@@ -206,8 +211,10 @@ function VehicleStudioWorkspace({ name, email, onLogout }: { name: string; email
         const resize = () => {
           if (!mountRef.current) return;
           const { width, height } = mountRef.current.getBoundingClientRect();
-          renderer.setSize(width, height, false);
-          camera.aspect = width / height;
+          const safeWidth = Math.max(1, Math.floor(width));
+          const safeHeight = Math.max(1, Math.floor(height));
+          renderer.setSize(safeWidth, safeHeight, true);
+          camera.aspect = safeWidth / safeHeight;
           camera.updateProjectionMatrix();
         };
         resizeObserver = new ResizeObserver(resize);
@@ -323,13 +330,13 @@ function VehicleStudioWorkspace({ name, email, onLogout }: { name: string; email
       </section>
 
       <section className="px-5 py-8 sm:px-8 lg:px-10 lg:py-10">
-        <div className="mx-auto grid max-w-[1600px] overflow-hidden border border-white/12 bg-white/[0.035] lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-h-[560px] border-b border-white/12 lg:min-h-[680px] lg:border-b-0 lg:border-r">
+        <div className="mx-auto grid min-w-0 max-w-[1600px] overflow-hidden border border-white/12 bg-white/[0.035] lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 min-h-[560px] border-b border-white/12 lg:min-h-[680px] lg:border-b-0 lg:border-r">
             <div className="flex items-center justify-between border-b border-white/12 px-5 py-4">
               <div><p className="text-[0.58rem] font-bold tracking-[0.18em] text-[#a9ff44]">360° PREVIEW</p><p className="mt-1 text-sm font-semibold text-white">{modelName}</p></div>
               <button onClick={() => resetCameraRef.current()} className="inline-flex items-center gap-2 text-[0.61rem] font-bold tracking-[0.12em] text-white/55 transition-colors hover:text-[#a9ff44]"><RotateCcw size={15} /> 重設視角</button>
             </div>
-            <div ref={mountRef} className="relative min-h-[500px] touch-none lg:min-h-[620px]">
+            <div ref={mountRef} className="relative min-w-0 min-h-[500px] overflow-hidden touch-none lg:min-h-[620px]">
               {isLoading && <div className="absolute inset-0 z-10 grid place-items-center bg-[#e9ecef] text-[#4e565d]"><div className="flex items-center gap-3 text-[0.65rem] font-bold tracking-[0.15em]"><LoaderCircle size={17} className="animate-spin" /> LOADING 3D ENGINE</div></div>}
               {!isLoading && modelName === "尚未載入車輛模型" && <div className="pointer-events-none absolute inset-0 z-[1] grid place-items-center px-8 text-center"><div><Orbit size={40} strokeWidth={1.25} className="mx-auto text-[#a9ff44]" /><p className="mt-4 text-[0.63rem] font-bold tracking-[0.18em] text-[#4e565d]">READY FOR YOUR GLB</p><p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-[#606970]">從右側載入車型後，即可拖曳旋轉、滑鼠滾輪縮放並測試車身色彩。</p></div></div>}
             </div>
