@@ -5,8 +5,20 @@ import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
-import { startLogin } from "./const";
+import { PUBLIC_SITE_ORIGIN, startLogin } from "./const";
 import "./index.css";
+
+const redirectLegacyHost = () => {
+  if (typeof window === "undefined") return false;
+  if (window.location.hostname !== "solution-car-wrap.vercel.app") return false;
+
+  const canonicalUrl = new URL(PUBLIC_SITE_ORIGIN);
+  canonicalUrl.pathname = window.location.pathname;
+  canonicalUrl.search = window.location.search;
+  canonicalUrl.hash = window.location.hash;
+  window.location.replace(canonicalUrl.toString());
+  return true;
+};
 
 const consumeOAuthRelay = async () => {
   if (typeof window === "undefined" || !window.location.hash) return;
@@ -18,10 +30,7 @@ const consumeOAuthRelay = async () => {
   try {
     const response = await fetch(
       `/api/oauth/exchange?code=${encodeURIComponent(relayCode)}`,
-      {
-        cache: "no-store",
-        credentials: "include",
-      }
+      { cache: "no-store", credentials: "include" }
     );
     if (!response.ok) {
       console.warn("[Auth] Login relay could not be exchanged");
@@ -42,15 +51,11 @@ const queryClient = new QueryClient();
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
-
-  const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
-
-  if (!isUnauthorized) return;
-
+  if (error.message !== UNAUTHED_ERR_MSG) return;
   startLogin();
 };
 
-queryClient.getQueryCache().subscribe(event => {
+queryClient.getQueryCache().subscribe((event) => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
     redirectToLoginIfUnauthorized(error);
@@ -58,7 +63,7 @@ queryClient.getQueryCache().subscribe(event => {
   }
 });
 
-queryClient.getMutationCache().subscribe(event => {
+queryClient.getMutationCache().subscribe((event) => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.mutation.state.error;
     redirectToLoginIfUnauthorized(error);
@@ -81,7 +86,7 @@ const trpcClient = trpc.createClient({
   ],
 });
 
-void consumeOAuthRelay().finally(() => {
+const renderApp = () => {
   createRoot(document.getElementById("root")!).render(
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
@@ -89,4 +94,8 @@ void consumeOAuthRelay().finally(() => {
       </QueryClientProvider>
     </trpc.Provider>
   );
-});
+};
+
+if (!redirectLegacyHost()) {
+  void consumeOAuthRelay().finally(renderApp);
+}
