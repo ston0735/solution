@@ -126,7 +126,7 @@ function SignInWall() {
   );
 }
 
-function MemberVehicleStudio({ name, email, onLogout }: { name: string; email?: string; onLogout: () => void }) {
+function VehicleStudioWorkspace({ name, email, onLogout }: { name: string; email?: string; onLogout: () => void }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const paintMaterialsRef = useRef<any[]>([]);
@@ -374,5 +374,5 @@ export default function MemberVehicleStudio() {
   const { user, loading, isAuthenticated, logout } = useAuth();
   if (loading) return <StudioLoading />;
   if (!isAuthenticated) return <SignInWall />;
-  return <MemberVehicleStudio name={user?.name?.trim() || "Solution 會員"} email={user?.email} onLogout={() => void logout()} />;
+  return <VehicleStudioWorkspace name={user?.name?.trim() || "Solution 會員"} email={user?.email} onLogout={() => void logout()} />;
 }
