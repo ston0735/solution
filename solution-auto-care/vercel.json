@@ -52,6 +52,10 @@
       "destination": "https://solauto1care-rmvw9wqm.manus.space/manus-storage/:path*"
     },
     {
+      "source": "/member/vehicle-studio",
+      "destination": "/"
+    },
+    {
       "source": "/member",
       "destination": "/"
     },
