@@ -14,6 +14,19 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "solution-car-wrap.vercel.app"
+        }
+      ],
+      "destination": "https://www.solution-wrap.com/:path*",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/oauth/:path*",
