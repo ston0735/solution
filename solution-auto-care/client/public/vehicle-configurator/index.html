@@ -376,7 +376,7 @@ const MODELS = [
   {id:'gt3',        name:'2022 Porsche 911 GT3 Touring', credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2022-porsche-911-gt3-touring-992-a76364a3d50c4d78912a28250cb57be5'}},
   {id:'purosangue', name:'2023 Ferrari Purosangue',       credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2023-ferrari-purosangue-541dc84c37174356a7b0efd44904593d'}},
   {id:'spyder718',  name:'2020 Porsche 718 Spyder',       credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2020-porsche-718-spyder-1bb367ebaee14829a24e9b5444c15087'}},
-  {id:'etrongt',    name:'2021 Audi e-tron GT',           credit:{author:'檔案未標示', license:'檔案未標示', url:null}},
+  {id:'etrongt',    name:'2021 Audi e-tron GT',           file:'144mb-etron gt.glb', credit:{author:'檔案未標示', license:'檔案未標示', url:null}},
   {id:'taycan',     name:'2021 Porsche Taycan Turbo S',   credit:{author:'VückyZ', license:'CC BY 4.0', url:'https://sketchfab.com/3d-models/porsche-taycan-turbo-s-project-cars-3-05d7951204e84686ba12625c66d7a8b7'}},
   {id:'turbo75',    name:'1975 Porsche 911 Turbo', missing:true},
 ];
@@ -1269,8 +1269,9 @@ function showDemo(){
 })();
 function openBuiltin(m, shared){
   const base = `models/${m.id}`;
+  const modelPath = m.file ? `models/${encodeURIComponent(m.file)}` : base + MODEL_EXT;
   fetch(base + '.parts.json').then(r => r.ok ? r.json() : null).catch(() => null)
-    .then(preset => loadModel(base + MODEL_EXT, m.name, 'cfgmap:builtin:' + m.id, m.credit, preset, shared));
+    .then(preset => loadModel(modelPath, m.name, 'cfgmap:builtin:' + m.id, m.credit, preset, shared));
 }
 
 /* ---------- share links: the whole setup packed into the address (#s.<code>) ---------- */
