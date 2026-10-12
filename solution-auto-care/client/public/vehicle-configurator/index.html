@@ -1,5 +1,9 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="3D 車輛外觀配置器：切換車款、車漆、輪圈、卡鉗與燈組顏色，支援 Pantone 自訂色。">
 <title>車色 3D 配置器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
@@ -153,6 +157,21 @@ details summary{cursor:pointer;padding:4px 0}
 .fixbar button.ghost[aria-pressed="true"]{background:#fff;color:#0b2a55}
 .sheet-tools{display:flex;gap:12px}
 .stage:has(.sheet:not([hidden])) .status{bottom:auto;top:132px}
+.iorow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.iotext{min-height:180px;flex:1}
+.saverow{display:flex;gap:8px}
+.saverow .field{flex:1;min-width:0}
+.saves{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;max-height:260px;overflow-y:auto}
+.save{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.save:last-child{border-bottom:none}
+.sdot{width:16px;height:16px;border-radius:50%;flex:none;box-shadow:inset 0 -3px 5px rgba(0,0,0,.25),0 0 0 1px var(--line)}
+.sinfo{flex:1;min-width:0}
+.sinfo b{display:block;font-size:13px;overflow-wrap:anywhere}
+.sinfo small{display:block;color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.save button{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:none;cursor:pointer;flex:none}
+.save button.load{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.save button.danger{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.saves-empty{padding:12px;color:var(--muted);font-size:12px;line-height:1.5}
 @media (max-width:760px){
   .app{grid-template-columns:1fr;grid-template-rows:64vh auto;height:auto}
   .panel{border-left:none;border-top:1px solid var(--line);overflow:visible;padding-inline:16px}
@@ -162,7 +181,9 @@ details summary{cursor:pointer;padding:4px 0}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
-
+<style>body{margin:0}</style>
+</head>
+<body>
 <div class="app">
   <div class="stage" id="stage">
     <canvas id="view" aria-label="3D 車輛預覽，拖曳旋轉、滾輪縮放"></canvas>
@@ -171,6 +192,7 @@ details summary{cursor:pointer;padding:4px 0}
       <div class="tools">
         <button class="chip" id="spin" aria-pressed="true">自動旋轉</button>
         <button class="chip" id="reset">重設視角</button>
+        <button class="chip" id="shareBtn">分享連結</button>
       </div>
     </div>
 
@@ -193,7 +215,7 @@ details summary{cursor:pointer;padding:4px 0}
         <button type="button" class="btn" id="cancelNew">取消</button>
       </form>
       <div class="sheet-tools"><button type="button" class="linkbtn" id="hideSel">暫時隱藏選到的部位，看看後面</button></div>
-      <p class="sheet-note">如果藍色範圍比你點的地方大，代表模型裡那些是同一塊，只能一起改。點車窗會直接選到後面的內裝。</p>
+      <p class="sheet-note">如果藍色範圍比你點的地方大，代表模型裡那些是同一塊，只能一起改。要選內裝時，先按上方「隱藏車身看內裝」。</p>
     </div>
 
     <div class="loading" id="loading" hidden>
@@ -235,12 +257,23 @@ details summary{cursor:pointer;padding:4px 0}
     </section>
 
     <section class="sec">
+      <div class="label">我的存檔 <b id="saveCount"></b></div>
+      <form class="saverow" id="saveForm">
+        <input class="field" id="saveName" maxlength="24" placeholder="存檔名稱，可留空" aria-label="存檔名稱" autocomplete="off">
+        <button class="btn primary" type="submit">存檔</button>
+      </form>
+      <div class="saves" id="saves"></div>
+      <p class="note">存檔記錄車款、部位設定和所有顏色，存在這個瀏覽器裡。換電腦或換瀏覽器請用「分享連結」帶過去。</p>
+    </section>
+
+    <section class="sec">
       <div class="label">車款</div>
       <div class="card">
         <div class="card-head"><b id="modelName">Demo 跑車</b><span id="modelSub">內建示範車款，所有選項都能直接試</span></div>
         <p class="credit" id="credit" hidden></p>
         <div class="parts" id="parts" hidden></div>
         <button class="btn primary" id="fixBtn" hidden>修正部位<small>顏色套錯地方時，點一下那裡告訴系統它是什麼</small></button>
+                <div class="iorow" id="ioRow" hidden><button type="button" class="btn" id="exportBtn">匯出設定</button><button type="button" class="btn" id="importBtn">匯入設定</button></div>
                 <button class="linkbtn" id="resetMap" hidden>清除我的修正，重新自動辨識</button>
       </div>
       <label class="upload">
@@ -254,6 +287,21 @@ details summary{cursor:pointer;padding:4px 0}
     </section>
 
   </aside>
+</div>
+
+<div class="picker" id="ioModal" role="dialog" aria-modal="true" aria-labelledby="ioTitle" hidden>
+  <div class="pick-card">
+    <div class="sheet-head">
+      <div><b id="ioTitle">設定檔</b><p id="ioSub"></p></div>
+      <button class="x" id="ioClose" aria-label="關閉">×</button>
+    </div>
+    <textarea class="mapout iotext" id="ioText" aria-label="設定內容" spellcheck="false"></textarea>
+    <div class="pick-foot">
+      <span class="pick-prev" id="ioNote"></span>
+      <button type="button" class="btn" id="ioCancel">取消</button>
+      <button type="button" class="btn primary" id="ioAction">複製</button>
+    </div>
+  </div>
 </div>
 
 <div class="picker" id="picker" role="dialog" aria-modal="true" aria-labelledby="pickTitle" hidden>
@@ -322,6 +370,7 @@ const state = {color:2, finish:0, rim:0, caliper:0, detail:{mirror:0, head:0, ta
 const optName = o => o.custom ? (o.label || '自訂') : o.name;
 const RAINBOW = 'conic-gradient(from 90deg,#e4002b,#ffcd00,#43b02a,#00a9e0,#5c068c,#e10098,#e4002b)';
 
+const MODEL_EXT = '.glb';   // the Vercel build uses '.glb'
 /* built-in cars (compressed copies of the owner's files, published next to this page) */
 const MODELS = [
   {id:'gt3',        name:'2022 Porsche 911 GT3 Touring', credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2022-porsche-911-gt3-touring-992-a76364a3d50c4d78912a28250cb57be5'}},
@@ -577,6 +626,8 @@ function applyDetail(role){
   applyTargets();
 }
 
+const RG = [];                 // every option group, so an imported setup can redraw them
+function refreshGroups(){ RG.forEach(g => { if (!g.el.isConnected) return; g.btns.forEach((b, i) => g.render(b, g.items[i])); g.sync(); }); }
 function radioGroup(el, items, get, set, render, onPick){
   const btns = [];
   const sync = () => btns.forEach((b, i) => { b.setAttribute('aria-checked', i === get()); b.tabIndex = i === get() ? 0 : -1; });
@@ -599,6 +650,7 @@ function radioGroup(el, items, get, set, render, onPick){
     choose(i); btns[i].focus();
   });
   sync();
+  RG.push({el, items, btns, render, sync});
 }
 function segRender(b, o){
   b.textContent = '';
@@ -636,6 +688,30 @@ function addDetailRow(role){
   radioGroup(seg, d.opts, () => state.detail[role], i => state.detail[role] = i, segRender, () => applyDetail(role));
 }
 Object.keys(DETAILS).forEach(addDetailRow);
+
+/* ---------- setup export / import: parts map + chosen look ---------- */
+const customOf = arr => arr.map((o, i) => o.custom && o.hex ? {i, hex:o.hex, label:o.label, code:o.code, cname:o.cname} : null).filter(Boolean);
+function lookData(){
+  return {color:state.color, finish:state.finish, rim:state.rim, caliper:state.caliper, detail:{...state.detail},
+    custom:{color:customOf(COLORS), rim:customOf(RIMS), caliper:customOf(CALIPERS),
+            detail:Object.fromEntries(Object.keys(DETAILS).map(r => [r, customOf(DETAILS[r].opts)]))}};
+}
+function applyLook(L){
+  if (!L) return;
+  const putCustom = (arr, list) => (list || []).forEach(c => { const o = arr[c.i]; if (o && o.custom && /^#[0-9a-f]{6}$/i.test(c.hex)) Object.assign(o, {hex:c.hex, label:c.label, code:c.code, cname:c.cname}); });
+  const ok = (arr, i) => Number.isInteger(i) && i >= 0 && i < arr.length && (!arr[i].custom || arr[i].hex);
+  const C = L.custom || {};
+  putCustom(COLORS, C.color); putCustom(RIMS, C.rim); putCustom(CALIPERS, C.caliper);
+  Object.keys(DETAILS).forEach(r => putCustom(DETAILS[r].opts, (C.detail || {})[r]));
+  if (ok(COLORS, L.color)) state.color = L.color;
+  if (ok(FINISHES, L.finish)) state.finish = L.finish;
+  if (ok(RIMS, L.rim)) state.rim = L.rim;
+  if (ok(CALIPERS, L.caliper)) state.caliper = L.caliper;
+  Object.keys(DETAILS).forEach(r => { const i = (L.detail || {})[r]; if (ok(DETAILS[r].opts, i)) state.detail[r] = i; });
+  refreshGroups();
+  applyPaint(); applyRim(); applyCaliper();
+  Object.keys(DETAILS).forEach(r => applyDetail(r));
+}
 
 /* ---------- colour picker ---------- */
 let pickCb = null, pickSel = null;
@@ -982,7 +1058,10 @@ function saveMap(){
 function loadMap(){
   let d = null;
   try { d = JSON.parse(localStorage.getItem(storeKey)); } catch (e) {}
-  if (!d || d.v !== 1) return false;
+  return applyMapData(d);
+}
+function applyMapData(d){
+  if (!d || d.v !== 1 || !meshList.length) return false;
   (d.custom || []).forEach(([id, name]) => { if (!ROLE_NAME[id]) addCustomPart(id, name); });
   (d.splits || []).forEach(i => { const o = meshList[i]; if (o && !o.userData.split && analyseWheel(o.geometry) === 'wheel') splitWheel(o); });
   groups.forEach(g => { if (g.name in d.groups) g.role = (d.groups[g.name] in ROLE_NAME) ? d.groups[g.name] : null; });
@@ -993,33 +1072,34 @@ function loadMap(){
 /* Tyres split into many pieces (sidewall, tread…): any part around a known wheel whose
    vertices sit on the outer ring of that wheel is tyre, not rim. */
 function tiresByRadius(){
+  /* Tyres split into many pieces (sidewall, tread arcs…). Find each wheel from all wheel parts at
+     that corner of the car, then any piece that sits, on average, on the outer ring is tyre. */
   const lat = modelAlongX ? 'z' : 'x', lon = modelAlongX ? 'x' : 'z';
-  const wheels = [], b = new THREE.Box3(), c = new V3(), s = new V3();
-  meshList.forEach(o => slotsOf(o).forEach((m, k) => {
-    if (roleOf(o, k, m) !== 'tire') return;
-    b.setFromObject(o); b.getCenter(c); b.getSize(s);
-    const R = Math.max(s.y, s[lon]) / 2;
-    if (R < modelLen * .05 || R > modelLen * .2) return;              // a piece, not a whole tyre
-    const w = wheels.find(w => w.c.distanceTo(c) < w.R * .5);
-    if (w) w.R = Math.max(w.R, R); else wheels.push({c: c.clone(), R});
-  }));
-  if (!wheels.length) return;
-  const v = new V3();
+  const all = new THREE.Box3().setFromObject(userModel), H = all.max.y - all.min.y;
+  const inWheelNode = o => { for (let n = o; n && n !== userModel; n = n.parent) if (WHEEL_NODE_RE.test(n.name)) return true; return false; };
+  const quads = {}, b = new THREE.Box3(), c = new V3();
   meshList.forEach(o => {
     const mats = slotsOf(o); if (mats.length !== 1 || o.userData.split) return;
-    const k = 0, m = mats[0], key = keyOf(o, k), r0 = roleOf(o, k, m);
-    if (r0 === 'tire' || r0 === 'paint' || r0 === 'caliper') return;
+    const r = roleOf(o, 0, mats[0]);
+    if (r === 'paint' || r === 'caliper') return;
+    if (!(inWheelNode(o) || r === 'rim' || r === 'tire')) return;
     b.setFromObject(o); b.getCenter(c);
-    const w = wheels.find(w => Math.hypot(c[lon] - w.c[lon], c.y - w.c.y) < w.R && Math.abs(c[lat] - w.c[lat]) < w.R);
-    if (!w) return;
-    const p = o.geometry.attributes.position, step = Math.max(1, Math.floor(p.count / 400));
-    let outer = 0, n = 0;
-    for (let i = 0; i < p.count; i += step){
-      v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
-      if (Math.hypot(v[lon] - w.c[lon], v.y - w.c.y) > .8 * w.R) outer++;
-      n++;
-    }
-    if (n && outer / n > .75) slotRole.set(key, 'tire');
+    if (c.y > all.min.y + H * .7) return;               // wheel parts sit in the lower part of the car
+    const k = (c[lon] > 0 ? 'f' : 'r') + (c[lat] > 0 ? 'l' : 'r');
+    const q = quads[k] || (quads[k] = {objs:[], box:new THREE.Box3()});
+    q.objs.push(o); q.box.union(b);
+  });
+  const v = new V3();
+  Object.values(quads).forEach(q => {
+    const s = q.box.getSize(new V3()), cc = q.box.getCenter(new V3()), R = Math.max(s.y, s[lon]) / 2;
+    if (R < modelLen * .05 || R > modelLen * .2) return;               // not a wheel-sized group
+    q.objs.forEach(o => {
+      const m = slotsOf(o)[0]; if (roleOf(o, 0, m) === 'tire') return;
+      const p = o.geometry.attributes.position, step = Math.max(1, Math.floor(p.count / 300));
+      let sum = 0, n = 0;
+      for (let i = 0; i < p.count; i += step){ v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); sum += Math.hypot(v[lon] - cc[lon], v.y - cc.y) / R; n++; }
+      if (n && sum / n > .8) slotRole.set(keyOf(o, 0), 'tire');
+    });
   });
 }
 function autoAll(){
@@ -1073,7 +1153,7 @@ function setModelUI(name, credit){
   $('brandSub').textContent = user ? (credit ? '內建車款' : '你載入的檔案') : '內建示範車款';
   $('modelName').textContent = user ? name : 'Demo 跑車';
   $('modelSub').textContent = user ? '下面是系統認出的部位，綠點代表已辨識' : '內建示範車款，所有選項都能直接試';
-  $('parts').hidden = $('fixBtn').hidden = $('devInfo').hidden = $('resetMap').hidden = !user;
+  $('parts').hidden = $('fixBtn').hidden = $('devInfo').hidden = $('resetMap').hidden = $('ioRow').hidden = !user;
   const cr = $('credit'); cr.textContent = ''; cr.hidden = !credit;
   if (credit){
     cr.append(`模型作者：${credit.author}｜授權：${credit.license}`);
@@ -1104,10 +1184,10 @@ function loadFailed(name){
 }
 $('loadCancel').onclick = () => { loadToken++; hideLoading(); $('carSelect').value = prevSel; say(''); };
 $('loadRetry').onclick = () => { if (lastLoad) loadModel(...lastLoad); };
-function loadModel(url, name, key, credit){
+function loadModel(url, name, key, credit, preset, shared){
   const token = ++loadToken;
   stopFix();
-  lastLoad = [url, name, key, credit];
+  lastLoad = [url, name, key, credit, preset, shared];
   say('');
   showLoading(name);
   new THREE.GLTFLoader().load(url, gltf => {
@@ -1144,14 +1224,21 @@ function loadModel(url, name, key, credit){
     storeKey = key;
     removeAllCustom();
     autoAll();
-    const restored = loadMap();
+    const fromShare = !!(shared && shared.parts) && applyMapData(shared.parts);
+    const restored = !fromShare && loadMap();
+    const fromPreset = !fromShare && !restored && !!preset && applyMapData(preset.v === 2 ? preset.parts : preset);
+    if (shared && shared.look) applyLook(shared.look);
+    else if (!restored && preset && preset.look) applyLook(preset.look);
     groups.sort((x, y) => ((y.role ? 1 : 0) - (x.role ? 1 : 0)) || (y.weight - x.weight));
     applyTargets();
     scene.remove(current); scene.add(userModel); current = userModel;
     setModelUI(name, credit);
     const n = renderParts();
     hideLoading(); prevSel = $('carSelect').value;
-    say(restored ? '載入完成，已套用你上次對這個檔案做的部位修正。'
+    if (shared && shared.from === 'save') saveMap();          // a loaded save becomes this car's current setup
+    say(shared ? (shared.from === 'save' ? `已讀取存檔「${shared.name}」。` : '載入完成，這是分享給你的設定。可以自由修改，不會影響分享的人。')
+      : restored ? '載入完成，已套用你上次對這個檔案做的部位修正。'
+      : fromPreset ? '載入完成，已套用這台車內建的部位設定。'
       : n.paint && n.rim && n.tire ? '載入完成。如果有地方顏色不對，按右側「修正部位」。'
       : '載入完成，但有部位沒認出來（右側橘色標示），按「修正部位」點一下那個地方就好。');
   }, xhr => {
@@ -1177,9 +1264,46 @@ function showDemo(){
   sel.addEventListener('change', () => {
     if (sel.value === 'demo') return showDemo();
     const m = MODELS.find(x => x.id === sel.value); if (!m || m.missing) return;
-    loadModel(`models/${m.id}.gltf.json`, m.name, 'cfgmap:builtin:' + m.id, m.credit);
+    openBuiltin(m);
   });
 })();
+function openBuiltin(m, shared){
+  const base = `models/${m.id}`;
+  fetch(base + '.parts.json').then(r => r.ok ? r.json() : null).catch(() => null)
+    .then(preset => loadModel(base + MODEL_EXT, m.name, 'cfgmap:builtin:' + m.id, m.credit, preset, shared));
+}
+
+/* ---------- share links: the whole setup packed into the address (#s.<code>) ---------- */
+const b64u = bytes => { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+async function packShare(obj){
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  if (window.CompressionStream){
+    const buf = await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer();
+    return 'z' + b64u(new Uint8Array(buf));
+  }
+  return 'j' + b64u(raw);
+}
+async function unpackShare(code){
+  let bytes = unb64u(code.slice(1));
+  if (code[0] === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+$('shareBtn').onclick = async () => {
+  const car = $('carSelect').value;
+  const data = {v:3, car, look:lookData()};
+  if (userModel && car !== 'file') data.parts = mapData();
+  const url = location.href.split('#')[0] + '#s.' + await packShare(data);
+  openIO('share', url, car);
+};
+async function bootFromLink(){
+  if (!location.hash.startsWith('#s.')) return;
+  let d;
+  try { d = await unpackShare(location.hash.slice(3)); } catch (e) { say('這個分享連結無法讀取，可能複製時被截斷了。'); return; }
+  const m = d && MODELS.find(x => x.id === d.car && !x.missing);
+  if (m){ $('carSelect').value = m.id; openBuiltin(m, d); }
+  else if (d && d.look){ applyLook(d.look); say('這是分享給你的設定。可以自由修改，不會影響分享的人。'); }
+}
 $('file').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   if (!/\.glb$/i.test(f.name)){ say('目前只支援單一 .glb 檔，.gltf 請先轉成 .glb。'); return; }
@@ -1191,6 +1315,51 @@ $('resetMap').onclick = () => {
   try { if (storeKey) localStorage.removeItem(storeKey); } catch (e) {}
   removeAllCustom(); autoAll(); applyTargets(); renderParts();
   say('已清除你的修正，改回自動辨識的結果。');
+};
+function applyPartsNow(parts){
+  removeAllCustom(); autoAll(); applyMapData(parts);
+  applyTargets(); renderParts(); saveMap();
+}
+let ioMode = 'export';
+function openIO(mode, url, car){
+  ioMode = mode;
+  const exp = mode !== 'import';
+  $('ioTitle').textContent = mode === 'share' ? '分享連結' : exp ? '匯出設定' : '匯入設定';
+  const preview = /claude/i.test(location.hostname);
+  $('ioSub').textContent = mode === 'share'
+      ? (preview ? '這裡是預覽環境，連結無法給別人開。請在你的 Vercel 網站按「分享連結」，那邊產生的連結才能分享。'
+         : car === 'file' ? '你載入的是自己電腦上的檔案，對方沒有這台車，連結只會帶到外觀選項。要分享整台車，請把它加進內建車款。'
+         : '對方打開這個連結，會看到同一台車和你調整好的部位、顏色。之後你再修改，要重新分享一次新連結。')
+    : exp ? '包含這台車的部位對應和目前選的外觀。複製後貼到另一個網址的「匯入設定」，或交給開發者做成預設值。'
+          : '貼上從「匯出設定」複製的內容，部位對應和外觀會一起套用到目前這台車。';
+  $('ioText').value = mode === 'share' ? url : exp ? JSON.stringify({v:2, car:storeKey, parts:mapData(), look:lookData()}) : '';
+  $('ioText').readOnly = exp;
+  $('ioAction').textContent = exp ? '複製' : '套用';
+  $('ioNote').textContent = '';
+  $('ioModal').hidden = false;
+  (exp ? $('ioAction') : $('ioText')).focus();
+}
+const closeIO = () => { $('ioModal').hidden = true; };
+$('exportBtn').onclick = () => openIO('export');
+$('importBtn').onclick = () => openIO('import');
+$('ioClose').onclick = $('ioCancel').onclick = closeIO;
+$('ioModal').addEventListener('click', e => { if (e.target === $('ioModal')) closeIO(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('ioModal').hidden){ closeIO(); e.stopImmediatePropagation(); } }, true);
+$('ioAction').onclick = () => {
+  const ta = $('ioText');
+  if (ioMode !== 'import'){
+    navigator.clipboard.writeText(ta.value).then(() => { $('ioNote').textContent = '已複製'; }, () => { ta.select(); $('ioNote').textContent = '請按 Ctrl+C 複製選取的文字'; });
+    return;
+  }
+  let d;
+  try { d = JSON.parse(ta.value); } catch (e) { $('ioNote').textContent = '內容格式不對，請貼上完整的匯出內容。'; return; }
+  const parts = d && d.v === 2 ? d.parts : d;
+  const okParts = parts && parts.v === 1;
+  if (!okParts && !(d && d.look)){ $('ioNote').textContent = '找不到可用的設定。'; return; }
+  if (okParts) applyPartsNow(parts);
+  if (d && d.look) applyLook(d.look);
+  closeIO();
+  say(okParts ? '已套用匯入的部位對應和外觀，也存進這個瀏覽器了。' : '已套用匯入的外觀。');
 };
 $('copyMap').onclick = () => {
   const ta = $('mapOut');
@@ -1325,8 +1494,7 @@ canvas.addEventListener('pointerup', e => {
     const cur = Array.isArray(h.object.material) ? h.object.material[k] : h.object.material;
     return cur && cur.visible !== false;
   });
-  const slotOf = h => slotsOf(h.object)[Array.isArray(h.object.userData.orig) ? (h.face.materialIndex || 0) : 0];
-  const hit = hits.find(h => !isGlass(slotOf(h))) || hits[0];       // look through windows to what is behind
+  const hit = hits[0];                 // the nearest visible part; for the cabin, hide the body first
   if (!hit) return;                                                            // empty space keeps the selection
   const o = hit.object, k = Array.isArray(o.userData.orig) ? (hit.face.materialIndex || 0) : 0;
   const key = keyOf(o, k);
@@ -1396,10 +1564,78 @@ function resize(){
 new ResizeObserver(resize).observe(stage); resize();
 applyPaint(); applyRim(); applyCaliper();
 Object.keys(DETAILS).forEach(r => DETAILS[r].nameEl.textContent = DETAILS[r].opts[0].name); applyDetail();
+/* ---------- saves: named setups kept in this browser ---------- */
+const SAVE_KEY = 'cfg-saves';
+const readSaves = () => { try { return JSON.parse(localStorage.getItem(SAVE_KEY)) || []; } catch (e) { return []; } };
+const writeSaves = list => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(list)); return true; } catch (e) { return false; } };
+const carLabel = car => car === 'demo' ? 'Demo 跑車' : car === 'file' ? $('modelName').textContent : (MODELS.find(x => x.id === car) || {}).name || car;
+const stamp = ms => new Date(ms).toLocaleString('zh-TW', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', hour12:false});
+function renderSaves(){
+  const list = readSaves(), box = $('saves');
+  box.innerHTML = '';
+  $('saveCount').textContent = list.length ? list.length + ' 組' : '';
+  if (!list.length){
+    const e = document.createElement('div'); e.className = 'saves-empty';
+    e.textContent = '還沒有存檔。調好喜歡的樣子後，取個名字按「存檔」。';
+    box.appendChild(e); return;
+  }
+  list.forEach(s => {
+    const row = document.createElement('div'); row.className = 'save';
+    row.innerHTML = '<i class="sdot"></i><div class="sinfo"><b></b><small></small></div><button type="button" class="load">讀取</button><button type="button">刪除</button>';
+    row.querySelector('.sdot').style.background = s.swatch || RAINBOW;
+    row.querySelector('b').textContent = s.name;
+    row.querySelector('small').textContent = s.carName + ' · ' + stamp(s.time);
+    row.querySelector('.load').onclick = () => loadSave(s);
+    const del = row.querySelectorAll('button')[1];
+    let armed = 0;
+    del.onclick = () => {
+      if (!armed){
+        del.textContent = '確定刪除？'; del.classList.add('danger');
+        armed = setTimeout(() => { armed = 0; del.textContent = '刪除'; del.classList.remove('danger'); }, 3500);
+        return;
+      }
+      clearTimeout(armed);
+      writeSaves(readSaves().filter(x => x.id !== s.id)); renderSaves();
+      say(`已刪除存檔「${s.name}」。`);
+    };
+    box.appendChild(row);
+  });
+}
+$('saveForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const car = $('carSelect').value;
+  const name = $('saveName').value.trim() || `${carLabel(car)} ${stamp(Date.now())}`;
+  const data = {v:3, car, look:lookData()};
+  if (userModel){ data.parts = mapData(); data.key = storeKey; }
+  const list = readSaves(), i = list.findIndex(x => x.name === name);
+  const entry = {id:Date.now().toString(36), name, car, carName:carLabel(car), time:Date.now(), swatch:COLORS[state.color].hex, data};
+  if (i >= 0) list[i] = entry; else list.unshift(entry);
+  if (!writeSaves(list)){ say('無法存檔：這個瀏覽器不允許網頁儲存資料（例如無痕模式），可以改用「分享連結」保存。'); return; }
+  $('saveName').value = ''; renderSaves();
+  say(i >= 0 ? `已更新存檔「${name}」。` : `已存檔「${name}」。`);
+});
+function loadSave(s){
+  const d = s.data, here = $('carSelect').value;
+  if (d.car === 'demo'){
+    if (here !== 'demo') showDemo();
+    applyLook(d.look); say(`已讀取存檔「${s.name}」。`); return;
+  }
+  if (d.car === 'file'){
+    if (userModel && storeKey === d.key){ applyPartsNow(d.parts); applyLook(d.look); say(`已讀取存檔「${s.name}」。`); }
+    else say(`這個存檔用的是你電腦上的「${s.carName}」，請先用「載入自己的車款」開啟那個檔案，再按讀取。`);
+    return;
+  }
+  const m = MODELS.find(x => x.id === d.car && !x.missing);
+  if (!m){ say('找不到這個存檔的車款。'); return; }
+  if (here === m.id && userModel){ applyPartsNow(d.parts); applyLook(d.look); say(`已讀取存檔「${s.name}」。`); }
+  else { $('carSelect').value = m.id; openBuiltin(m, {...d, from:'save', name:s.name}); }
+}
+renderSaves();
+bootFromLink();
 renderer.setAnimationLoop(t => {
   if (highlightKeys.size) hlMat.emissiveIntensity = .45 + .35 * Math.sin(t / 160);
   controls.update(); renderer.render(scene, camera);
 });
 </script>
-
-</body></html>
+</body>
+</html>
