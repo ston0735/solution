@@ -1,0 +1,1405 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta charset="utf-8">
+<title>車色 3D 配置器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: studio viewport fills the left, a spec-sheet panel on the right (stacks below on phones).
+   Owner-facing: options are named by car parts, never by file or material names. */
+:root{
+  --bg:#eef0f2; --stage-a:#f7f8f9; --stage-b:#d9dde2;
+  --panel:#ffffff; --fg:#1b1f24; --muted:#66707b; --line:#dfe3e8; --soft:#f3f5f7;
+  --accent:#c8102e; --accent-fg:#ffffff; --pick:#1f7bff;
+  --ok:#1f8a4c; --warn:#b26a00;
+  --font-display:"Chakra Petch","Noto Sans TC",system-ui,sans-serif;
+  --font-body:"Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121417; --stage-a:#2a2e34; --stage-b:#0f1114;
+  --panel:#1a1d21; --fg:#e9ecef; --muted:#9aa3ad; --line:#2c3137; --soft:#22262b;
+  --accent:#ff3b4f; --accent-fg:#14070a; --pick:#4d9bff;
+  --ok:#4cc27e; --warn:#f0a63a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121417; --stage-a:#2a2e34; --stage-b:#0f1114;
+  --panel:#1a1d21; --fg:#e9ecef; --muted:#9aa3ad; --line:#2c3137; --soft:#22262b;
+  --accent:#ff3b4f; --accent-fg:#14070a; --pick:#4d9bff;
+  --ok:#4cc27e; --warn:#f0a63a; color-scheme:dark}
+[hidden]{display:none!important}   /* overlays stay closed until opened, in every viewer */
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px}
+button{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 340px;height:100%;min-height:560px}
+.stage{position:relative;min-width:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 35%,var(--stage-a),var(--stage-b))}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#view:active{cursor:grabbing}
+.stage.fixing #view{cursor:crosshair}
+.stage-top{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+.brand{pointer-events:auto;flex:1;font-weight:600;font-size:22px;letter-spacing:.04em;text-transform:uppercase;min-width:0;overflow-wrap:anywhere}
+.brand small{display:block;font-family:var(--font-body);font-weight:400;font-size:12px;letter-spacing:0;color:var(--muted);text-transform:none;margin-top:2px}
+.tools{display:flex;gap:8px;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+.chip{border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent);padding:7px 12px;border-radius:999px;cursor:pointer;font-size:13px;backdrop-filter:blur(6px)}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hint{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--muted);white-space:nowrap;pointer-events:none}
+.status{position:absolute;bottom:44px;left:50%;transform:translateX(-50%);max-width:calc(100% - 32px);width:max-content;text-align:center;font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--line);padding:8px 14px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+
+/* fix mode */
+.fixbar{position:absolute;top:70px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:var(--pick);color:#fff;padding:8px 8px 8px 16px;border-radius:999px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.2);max-width:calc(100% - 32px)}
+.fixbar button{background:#fff;color:#0b2a55;border:none;border-radius:999px;padding:6px 14px;cursor:pointer;font-weight:500;flex:none}
+.sheet{position:absolute;left:16px;right:16px;bottom:16px;margin-inline:auto;max-width:600px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:12px}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sheet-head b{font-size:16px;font-weight:700}
+.sheet-head p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.x{background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.roles button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border:1px solid var(--line);border-radius:12px;background:var(--soft);cursor:pointer;font-weight:500}
+.roles button svg{width:30px;height:30px}
+.roles button small{font-weight:400;font-size:11px;color:var(--muted);text-align:center}
+.roles button:hover{border-color:var(--fg)}
+.roles button[aria-pressed="true"]{border-color:var(--pick);box-shadow:inset 0 0 0 1px var(--pick)}
+
+/* panel */
+.panel{background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:24px 20px;display:flex;flex-direction:column;gap:26px}
+.sec{display:flex;flex-direction:column;gap:12px}
+.label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:baseline}
+.label b{font-weight:500;color:var(--fg);letter-spacing:.02em;text-transform:none;font-size:13px}
+.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.sw{aspect-ratio:1;max-width:100%;border-radius:50%;border:none;cursor:pointer;position:relative;box-shadow:inset 0 -6px 10px rgba(0,0,0,.25),inset 0 4px 8px rgba(255,255,255,.35),0 0 0 1px var(--line)}
+.sw[aria-checked="true"]::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:2px solid var(--fg)}
+.paint-meta{display:flex;justify-content:space-between;font-size:13px}
+.paint-meta .code{font-family:var(--font-display);color:var(--muted);font-variant-numeric:tabular-nums}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg.four{grid-template-columns:repeat(4,1fr)}
+.seg button{font-size:13px;background:none;border:none;padding:8px 2px;border-radius:7px;cursor:pointer}
+.seg button[aria-checked="true"]{background:var(--fg);color:var(--panel)}
+.note{font-size:12px;color:var(--muted);margin:0;line-height:1.5}
+
+.card{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.card-head b{display:block;font-size:15px;overflow-wrap:anywhere}
+.card-head span{font-size:12px;color:var(--muted)}
+.parts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.part{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:var(--soft);border:1px solid transparent;cursor:pointer;font-size:13px;text-align:left}
+.part em{margin-left:auto;font-style:normal;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pdot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.part.ok .pdot{background:var(--ok)}
+.part.warn{border-color:var(--warn)}
+.part.warn .pdot{background:var(--warn)}
+.part.warn em{color:var(--warn)}
+.btn{border-radius:10px;padding:10px 12px;cursor:pointer;font-size:14px;font-weight:500;border:1px solid var(--line);background:none}
+.btn.primary{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.btn small{display:block;font-weight:400;font-size:12px;opacity:.75;margin-top:2px}
+.upload{display:flex;flex-direction:column;gap:4px;border:1px dashed var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;font-size:13px;position:relative}
+.upload:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.upload input{position:absolute;opacity:0;width:1px;height:1px}
+.upload span{color:var(--muted);font-size:12px;line-height:1.5}
+details{font-size:12px;color:var(--muted)}
+details summary{cursor:pointer;padding:4px 0}
+.matlist{display:flex;flex-direction:column;max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;margin-top:6px}
+.mat{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line)}
+.mat:last-child{border-bottom:none}
+.mdot{width:10px;height:10px;border-radius:50%;flex:none;box-shadow:0 0 0 1px var(--line)}
+.mname{flex:1;min-width:0;overflow-wrap:anywhere;color:var(--fg)}
+
+.details{display:flex;flex-direction:column;gap:14px}
+.drow{display:flex;flex-direction:column;gap:6px}
+.roles button.add{border-style:dashed;background:none}
+.newpart{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.newpart input{flex:1;min-width:160px;font:inherit;font-size:14px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--fg)}
+.newpart .btn{padding:9px 14px}
+.drow .label{align-items:center}
+.drow .rm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0 0 0 8px;text-decoration:underline;letter-spacing:0;text-transform:none}
+.sheet-note{font-size:12px;color:var(--muted);margin:0}
+.roles{grid-template-columns:repeat(auto-fit,minmax(88px,1fr))}
+.roles button{padding:10px 4px}
+.roles button svg{width:26px;height:26px}
+.linkbtn{background:none;border:none;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:12px;padding:0;align-self:flex-start}
+.mapout{width:100%;min-height:70px;margin-top:6px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--soft);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px;resize:vertical}
+.carpick{position:relative;display:inline-flex;align-items:center;max-width:100%}
+.carpick select{appearance:none;-webkit-appearance:none;font-family:var(--font-display);font-weight:600;font-size:20px;letter-spacing:.02em;color:var(--fg);background:color-mix(in srgb,var(--panel) 70%,transparent);border:1px solid var(--line);border-radius:10px;padding:6px 34px 6px 12px;max-width:100%;text-overflow:ellipsis;cursor:pointer;backdrop-filter:blur(6px)}
+.carpick::after{content:"";position:absolute;right:13px;top:50%;width:8px;height:8px;border-right:2px solid var(--fg);border-bottom:2px solid var(--fg);transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.brand small{padding-left:2px}
+.credit{font-size:12px;color:var(--muted);margin:0;line-height:1.6;overflow-wrap:anywhere}
+.credit a{color:inherit}
+.sw.custom::before{content:"";position:absolute;right:-1px;bottom:-1px;width:30%;height:30%;border-radius:50%;background:conic-gradient(from 90deg,#e4002b,#ffcd00,#43b02a,#00a9e0,#5c068c,#e10098,#e4002b);box-shadow:0 0 0 2px var(--panel)}
+.cdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px var(--line)}
+.seg.dense button{font-size:12px;padding:8px 0}
+.field{font:inherit;font-size:14px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--soft);color:var(--fg);width:100%}
+.picker{position:fixed;inset:0;z-index:20;background:rgba(8,10,14,.5);display:flex;align-items:center;justify-content:center;padding:16px}
+.pick-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:min(580px,100%);max-height:calc(100% - 32px);display:flex;flex-direction:column;gap:12px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;overflow-y:auto;min-height:140px;flex:1;padding:2px}
+.pchip{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--soft);cursor:pointer;text-align:left;padding:0}
+.pchip i{display:block;height:42px}
+.pchip span{font-size:12px;font-weight:700;padding:6px 8px 0;font-variant-numeric:tabular-nums}
+.pchip small{font-size:11px;color:var(--muted);padding:0 8px 7px}
+.pchip[aria-pressed="true"]{outline:2px solid var(--fg);outline-offset:1px}
+.pick-empty{grid-column:1/-1;color:var(--muted);font-size:13px;padding:12px 0}
+.pick-own{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px}
+.pick-own input[type="color"]{width:44px;height:36px;border:1px solid var(--line);border-radius:8px;background:none;padding:2px;cursor:pointer}
+.pick-own .field{width:120px;font-family:ui-monospace,Menlo,Consolas,monospace;text-transform:uppercase}
+.pick-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pick-prev{flex:1;display:flex;align-items:center;gap:10px;min-width:160px;font-size:13px}
+.pick-prev i{width:30px;height:30px;border-radius:50%;flex:none;box-shadow:0 0 0 1px var(--line)}
+.loading{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px;text-align:center;background:color-mix(in srgb,var(--bg) 60%,transparent);backdrop-filter:blur(3px)}
+.loading b{font-size:16px}
+.loading span{font-size:13px;color:var(--muted);max-width:360px;line-height:1.5}
+.loading .bar{width:min(320px,80%);height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.loading .bar i{display:block;height:100%;width:0;background:var(--fg);transition:width .2s}
+.loading .lrow{display:flex;gap:8px}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--fg);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+.fixbar{flex-wrap:wrap;justify-content:center}
+.fixbar button.ghost{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.45)}
+.fixbar button.ghost[aria-pressed="true"]{background:#fff;color:#0b2a55}
+.sheet-tools{display:flex;gap:12px}
+.stage:has(.sheet:not([hidden])) .status{bottom:auto;top:132px}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:64vh auto;height:auto}
+  .panel{border-left:none;border-top:1px solid var(--line);overflow:visible;padding-inline:16px}
+  .swatches{grid-template-columns:repeat(9,1fr);gap:6px}
+  .hint{display:none}
+  .fixbar{top:auto;bottom:16px;font-size:13px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="view" aria-label="3D 車輛預覽，拖曳旋轉、滾輪縮放"></canvas>
+    <div class="stage-top">
+      <div class="brand"><label class="carpick"><select id="carSelect" aria-label="選擇車款"></select></label><small id="brandSub">內建示範車款</small></div>
+      <div class="tools">
+        <button class="chip" id="spin" aria-pressed="true">自動旋轉</button>
+        <button class="chip" id="reset">重設視角</button>
+      </div>
+    </div>
+
+    <div class="fixbar" id="fixBar" hidden>
+      <span>點車上顏色不對的地方，可以一次點好幾個</span>
+      <button type="button" class="ghost" id="shellBtn" aria-pressed="false">隱藏車身看內裝</button>
+      <button type="button" class="ghost" id="showAllBtn" hidden>全部顯示</button>
+      <button type="button" id="fixDone">完成</button>
+    </div>
+
+    <div class="sheet" id="sheet" role="dialog" aria-labelledby="sheetTitle" hidden>
+      <div class="sheet-head">
+        <div><b id="sheetTitle">藍色標出的是哪個部位？</b><p id="sheetSub">選好之後，它就會跟著那個選項變色。</p></div>
+        <button class="x" id="sheetClose" aria-label="取消選取" title="取消選取">×</button>
+      </div>
+      <div class="roles" id="roles"></div>
+      <form class="newpart" id="newPart" hidden>
+        <input id="newPartName" maxlength="12" placeholder="部位名稱，例如：尾翼、側裙、車頂" aria-label="新部位名稱" autocomplete="off">
+        <button type="submit" class="btn primary">建立並套用</button>
+        <button type="button" class="btn" id="cancelNew">取消</button>
+      </form>
+      <div class="sheet-tools"><button type="button" class="linkbtn" id="hideSel">暫時隱藏選到的部位，看看後面</button></div>
+      <p class="sheet-note">如果藍色範圍比你點的地方大，代表模型裡那些是同一塊，只能一起改。點車窗會直接選到後面的內裝。</p>
+    </div>
+
+    <div class="loading" id="loading" hidden>
+      <div class="spin" aria-hidden="true"></div>
+      <b id="loadTitle"></b>
+      <div class="bar"><i id="loadBar"></i></div>
+      <span id="loadMsg"></span>
+      <div class="lrow"><button type="button" class="btn" id="loadCancel">取消</button><button type="button" class="btn primary" id="loadRetry" hidden>重試</button></div>
+    </div>
+    <div class="status" id="status" hidden></div>
+    <div class="hint" id="hint">拖曳旋轉 · 滾輪 / 雙指縮放</div>
+  </div>
+
+  <aside class="panel">
+    <section class="sec">
+      <div class="label">車身顏色</div>
+      <div class="swatches" id="swatches" role="radiogroup" aria-label="車身顏色"></div>
+      <div class="paint-meta"><span id="paintName"></span><span class="code" id="paintCode"></span></div>
+    </section>
+
+    <section class="sec">
+      <div class="label">漆面質感 <b id="finishName"></b></div>
+      <div class="seg" id="finish" role="radiogroup" aria-label="漆面質感"></div>
+    </section>
+
+    <section class="sec">
+      <div class="label">輪圈 <b id="rimName"></b></div>
+      <div class="seg" id="rims" role="radiogroup" aria-label="輪圈"></div>
+    </section>
+
+    <section class="sec">
+      <div class="label">煞車卡鉗 <b id="calName"></b></div>
+      <div class="seg" id="calipers" role="radiogroup" aria-label="煞車卡鉗"></div>
+    </section>
+
+    <section class="sec">
+      <div class="label">外觀細節</div>
+      <div class="details" id="details"></div>
+    </section>
+
+    <section class="sec">
+      <div class="label">車款</div>
+      <div class="card">
+        <div class="card-head"><b id="modelName">Demo 跑車</b><span id="modelSub">內建示範車款，所有選項都能直接試</span></div>
+        <p class="credit" id="credit" hidden></p>
+        <div class="parts" id="parts" hidden></div>
+        <button class="btn primary" id="fixBtn" hidden>修正部位<small>顏色套錯地方時，點一下那裡告訴系統它是什麼</small></button>
+                <button class="linkbtn" id="resetMap" hidden>清除我的修正，重新自動辨識</button>
+      </div>
+      <label class="upload">
+        <input type="file" id="file" accept=".glb">
+        載入自己的車款（.glb 檔）
+        <span>上方選單已有內建車款。自己的檔案也會自動找出車身、輪圈、輪胎和卡鉗。</span>
+      </label>
+      <details id="devInfo" hidden><summary>開發者資訊：材質清單與部位對應</summary><div class="matlist" id="matList"></div>
+        <textarea class="mapout" id="mapOut" readonly aria-label="部位對應資料"></textarea>
+        <button class="linkbtn" id="copyMap">複製部位對應資料</button></details>
+    </section>
+
+  </aside>
+</div>
+
+<div class="picker" id="picker" role="dialog" aria-modal="true" aria-labelledby="pickTitle" hidden>
+  <div class="pick-card">
+    <div class="sheet-head">
+      <div><b id="pickTitle">自訂顏色</b><p>從 Pantone 色票挑選，或自己調色。</p></div>
+      <button class="x" id="pickClose" aria-label="關閉">×</button>
+    </div>
+    <input class="field" id="pickSearch" placeholder="搜尋色號或名稱，例如 186、紅、Cool Gray" aria-label="搜尋 Pantone 色票" autocomplete="off">
+    <div class="pick-grid" id="pickGrid"></div>
+    <div class="pick-own">
+      <span>或自己調色</span>
+      <input type="color" id="pickColor" value="#c8102e" aria-label="自選顏色">
+      <input class="field" id="pickHex" maxlength="7" placeholder="#C8102E" aria-label="輸入色碼">
+    </div>
+    <div class="pick-foot">
+      <div class="pick-prev"><i id="pickDot"></i><span id="pickLabel">尚未選擇顏色</span></div>
+      <button type="button" class="btn" id="pickCancel">取消</button>
+      <button type="button" class="btn primary" id="pickApply" disabled>套用</button>
+    </div>
+    <p class="note">螢幕上的顏色是近似值，實際顏色請以 Pantone 實體色卡為準。</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const V3 = THREE.Vector3;
+const COLORS = [
+  {name:'極光白', code:'W01', hex:'#e9ebee'},
+  {name:'碳晶黑', code:'K02', hex:'#16181b'},
+  {name:'魂動紅', code:'R03', hex:'#a3141c'},
+  {name:'冰川藍', code:'B04', hex:'#2d5d8a'},
+  {name:'鈦灰',   code:'G05', hex:'#6e747a'},
+  {name:'賽道黃', code:'Y06', hex:'#e2a614'},
+  {name:'森林綠', code:'N07', hex:'#25453a'},
+  {name:'暮光紫', code:'V08', hex:'#4a2f5c'},
+  {name:'自訂色', custom:true, title:'車身顏色'},
+];
+const FINISHES = [
+  {name:'金屬',     p:{metalness:.65,roughness:.32,clearcoat:1,clearcoatRoughness:.04}},
+  {name:'亮光',     p:{metalness:0,  roughness:.18,clearcoat:1,clearcoatRoughness:.02}},
+  {name:'消光', p:{metalness:.25,roughness:.62,clearcoat:0,clearcoatRoughness:.5}},
+];
+const RIMS = [
+  {name:'亮銀',   hex:'#c9ccd0', metal:1,  rough:.25},
+  {name:'霧黑',   hex:'#202225', metal:.6, rough:.55},
+  {name:'香檳金', hex:'#b89a62', metal:1,  rough:.3},
+  {name:'自訂',   custom:true, title:'輪圈', metal:.9, rough:.3},
+];
+const CALIPERS = [
+  {name:'原廠',   hex:null},
+  {name:'競技紅', hex:'#b4141a'},
+  {name:'賽道黃', hex:'#e2a614'},
+  {name:'曜石黑', hex:'#1c1d20'},
+  {name:'自訂',   custom:true, title:'煞車卡鉗'},
+];
+const DETAILS = {
+  mirror: {label:'後視鏡', opts:[{name:'同車身',v:'paint'},{name:'亮黑',v:'black'},{name:'碳纖維',v:'carbon'},{name:'自訂',v:'custom',custom:true,title:'後視鏡'}]},
+  head:   {label:'大燈',   opts:[{name:'原廠',v:'orig'},{name:'燻黑',v:'smoke'},{name:'自訂',v:'custom',custom:true,title:'大燈燈色'}]},
+  tail:   {label:'尾燈',   opts:[{name:'原廠',v:'orig'},{name:'燻黑',v:'smoke'},{name:'自訂',v:'custom',custom:true,title:'尾燈燈色'}]},
+};
+const state = {color:2, finish:0, rim:0, caliper:0, detail:{mirror:0, head:0, tail:0}};
+const optName = o => o.custom ? (o.label || '自訂') : o.name;
+const RAINBOW = 'conic-gradient(from 90deg,#e4002b,#ffcd00,#43b02a,#00a9e0,#5c068c,#e10098,#e4002b)';
+
+/* built-in cars (compressed copies of the owner's files, published next to this page) */
+const MODELS = [
+  {id:'gt3',        name:'2022 Porsche 911 GT3 Touring', credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2022-porsche-911-gt3-touring-992-a76364a3d50c4d78912a28250cb57be5'}},
+  {id:'purosangue', name:'2023 Ferrari Purosangue',       credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2023-ferrari-purosangue-541dc84c37174356a7b0efd44904593d'}},
+  {id:'spyder718',  name:'2020 Porsche 718 Spyder',       credit:{author:'Ddiaz Design', license:'CC BY-NC-SA 4.0', url:'https://sketchfab.com/3d-models/2020-porsche-718-spyder-1bb367ebaee14829a24e9b5444c15087'}},
+  {id:'etrongt',    name:'2021 Audi e-tron GT',           credit:{author:'檔案未標示', license:'檔案未標示', url:null}},
+  {id:'taycan',     name:'2021 Porsche Taycan Turbo S',   credit:{author:'VückyZ', license:'CC BY 4.0', url:'https://sketchfab.com/3d-models/porsche-taycan-turbo-s-project-cars-3-05d7951204e84686ba12625c66d7a8b7'}},
+  {id:'turbo75',    name:'1975 Porsche 911 Turbo', missing:true},
+];
+
+/* Pantone references with their commonly published screen approximations */
+const PANTONE = [
+  ['186 C','經典紅','#C8102E'],['185 C','鮮紅','#E4002B'],['032 C','暖紅','#EF3340'],['485 C','正紅','#DA291C'],
+  ['1795 C','番茄紅','#D22630'],['199 C','莓紅','#D50032'],['201 C','酒紅','#9D2235'],['7427 C','勃根地紅','#97233F'],
+  ['Rhodamine Red C','玫瑰紅','#E10098'],['219 C','桃紅','#DA1884'],['021 C','亮橘','#FE5000'],['1505 C','活力橘','#FF6900'],
+  ['151 C','南瓜橘','#FF8200'],['1235 C','琥珀黃','#FFB81C'],['116 C','金黃','#FFCD00'],['109 C','向日葵黃','#FFD100'],
+  ['Yellow C','檸檬黃','#FEDD00'],['7406 C','芥末黃','#F1C400'],['375 C','萊姆綠','#97D700'],['361 C','草地綠','#43B02A'],
+  ['347 C','翡翠綠','#009A44'],['356 C','森林綠','#007A33'],['3425 C','墨綠','#006341'],['3435 C','英國賽車綠','#154734'],
+  ['553 C','橄欖綠','#2C5234'],['3125 C','湖水藍','#00AEC7'],['321 C','孔雀藍','#008C95'],['2995 C','天空藍','#00A9E0'],
+  ['299 C','晴空藍','#00A3E0'],['300 C','亮藍','#005EB8'],['2728 C','寶藍','#0047BB'],['286 C','皇家藍','#0033A0'],
+  ['072 C','電光藍','#10069F'],['281 C','海軍藍','#00205B'],['289 C','午夜藍','#0C2340'],['2685 C','深紫','#330072'],
+  ['2597 C','皇家紫','#5C068C'],['2587 C','紫羅蘭','#8246AF'],['266 C','薰衣草紫','#753BBD'],['Cool Gray 1 C','珍珠灰','#D9D9D6'],
+  ['Cool Gray 4 C','霧灰','#BBBCBC'],['Cool Gray 7 C','水泥灰','#97999B'],['Cool Gray 9 C','石墨灰','#75787B'],['Cool Gray 11 C','深灰','#53565A'],
+  ['Warm Gray 3 C','暖灰','#BFB8AF'],['7527 C','米白','#D6D2C4'],['468 C','沙漠米','#DDCBA4'],['4635 C','焦糖棕','#94603E'],
+  ['4625 C','巧克力棕','#4F2C1D'],['433 C','碳黑','#1D252D'],['Black 6 C','深邃黑','#101820'],['Black C','暖黑','#2D2926'],
+  ['877 C','金屬銀','#8A8D8F'],['871 C','金屬金','#84754E'],['876 C','金屬銅','#8B634B'],
+  ['18-1750 TCX','Viva Magenta','#BB2649'],['17-3938 TCX','Very Peri','#6667AB'],['19-4052 TCX','Classic Blue','#0F4C81'],
+  ['13-1023 TCX','Peach Fuzz','#FFBE98'],['17-1230 TCX','Mocha Mousse','#A47864'],
+];
+
+/* ---------- renderer / scene ---------- */
+const canvas = $('view'), stage = $('stage');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+const HOME = new V3(6.2, 2.6, 6.2);
+camera.position.copy(HOME);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.target.set(0, 0.7, 0);
+controls.enableDamping = true; controls.dampingFactor = .08;
+controls.enablePan = false;
+controls.minDistance = 4.5; controls.maxDistance = 13;
+controls.maxPolarAngle = Math.PI/2 - 0.04;
+controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+controls.autoRotateSpeed = 1.2;
+
+(function buildEnv(){
+  const pm = new THREE.PMREMGenerator(renderer), env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(30,14,30), new THREE.MeshBasicMaterial({color:0x3a3d42, side:THREE.BackSide})));
+  const strip = (w,h,x,y,z,ry,rx,c=0xffffff) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({color:c, side:THREE.DoubleSide}));
+    m.position.set(x,y,z); m.rotation.set(rx||0, ry||0, 0); env.add(m);
+  };
+  strip(18,3,0,6.9,0,0,Math.PI/2);
+  strip(3,14,0,6.9,-6,0,Math.PI/2,0xdfe6ee);
+  strip(12,4,-14.9,3,0,Math.PI/2);
+  strip(12,4,14.9,3,0,-Math.PI/2,0xfff1e0);
+  strip(20,1.2,0,1.5,-14.9,0);
+  scene.environment = pm.fromScene(env, 0.035).texture;
+  pm.dispose();
+})();
+
+const key = new THREE.DirectionalLight(0xffffff, 1.4);
+key.position.set(4, 8, 3); key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+Object.assign(key.shadow.camera, {left:-4,right:4,top:4,bottom:-4,near:1,far:20});
+key.shadow.bias = -0.0005;
+scene.add(key, new THREE.HemisphereLight(0xffffff, 0x444444, .35));
+
+const blobTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), r = g.createRadialGradient(128,128,10,128,128,128);
+  r.addColorStop(0,'rgba(0,0,0,.55)'); r.addColorStop(.6,'rgba(0,0,0,.18)'); r.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle = r; g.fillRect(0,0,256,256);
+  return new THREE.CanvasTexture(c);
+})();
+const blob = new THREE.Mesh(new THREE.PlaneGeometry(6.4,3.4), new THREE.MeshBasicMaterial({map:blobTex, transparent:true, depthWrite:false}));
+blob.rotation.x = -Math.PI/2; blob.position.y = 0.002; scene.add(blob);
+const catcher = new THREE.Mesh(new THREE.PlaneGeometry(30,30), new THREE.ShadowMaterial({opacity:.22}));
+catcher.rotation.x = -Math.PI/2; catcher.receiveShadow = true; scene.add(catcher);
+
+/* ---------- shared materials (one per configurable part) ---------- */
+const paint   = new THREE.MeshPhysicalMaterial({color:0xffffff, envMapIntensity:1.2});
+const rim     = new THREE.MeshStandardMaterial({color:0xcccccc, metalness:1, roughness:.25});
+const caliper = new THREE.MeshStandardMaterial({color:0xb4141a, metalness:.1, roughness:.35});
+const rubber  = new THREE.MeshStandardMaterial({roughness:.92, metalness:0, envMapIntensity:.3});
+rubber.color.set('#0b0b0c').convertSRGBToLinear();
+const glass = new THREE.MeshPhysicalMaterial({color:0x0b0d10, metalness:0, roughness:.05, clearcoat:1, clearcoatRoughness:0, envMapIntensity:1.5});
+const trim  = new THREE.MeshStandardMaterial({color:0x111214, roughness:.6, metalness:.2});
+const head  = new THREE.MeshStandardMaterial({color:0xffffff, emissive:0xe8f2ff, emissiveIntensity:1.6});
+const tail  = new THREE.MeshStandardMaterial({color:0x550000, emissive:0xff1a1a, emissiveIntensity:1.4});
+const carbonTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'); g.fillStyle = '#0d0e10'; g.fillRect(0,0,64,64);
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++){
+    const along = (x + y) % 2 === 0;
+    const grd = along ? g.createLinearGradient(x*8,0,x*8+8,0) : g.createLinearGradient(0,y*8,0,y*8+8);
+    grd.addColorStop(0,'#141619'); grd.addColorStop(.5,'#2c2f34'); grd.addColorStop(1,'#141619');
+    g.fillStyle = grd; g.fillRect(x*8+.5, y*8+.5, 7, 7);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10,10); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+  return t;
+})();
+const carbon = new THREE.MeshPhysicalMaterial({map:carbonTex, metalness:.3, roughness:.35, clearcoat:1, clearcoatRoughness:.03});
+const glossBlack = new THREE.MeshPhysicalMaterial({metalness:.1, roughness:.2, clearcoat:1, clearcoatRoughness:.03});
+glossBlack.color.set('#0a0a0b').convertSRGBToLinear();
+const chrome = new THREE.MeshStandardMaterial({color:0xe6e8ea, metalness:1, roughness:.06});
+const smokeClones = new Map();
+function smokeFor(m){            // smoked lens: same light, darker tint
+  let c = smokeClones.get(m.uuid);
+  if (!c){
+    c = m.clone();
+    if (c.color) c.color.multiplyScalar(.22);
+    if (c.emissive) c.emissiveIntensity = (c.emissiveIntensity || 1) * .55;
+    if (c.transparent) c.opacity = Math.min(1, (c.opacity || 1) + .25);
+    smokeClones.set(m.uuid, c);
+  }
+  return c;
+}
+const solidMats = new Map(), tintMats = new Map();
+function solidFor(role, hex){      // a part in a chosen colour, paint-like finish
+  let c = solidMats.get(role);
+  if (!c){ c = new THREE.MeshPhysicalMaterial({metalness:.3, roughness:.3, clearcoat:1, clearcoatRoughness:.04}); solidMats.set(role, c); }
+  c.color.set(hex).convertSRGBToLinear();
+  return c;
+}
+function tintFor(base, hex){       // a light lens in a chosen colour, still glowing
+  const key = base.uuid + hex;
+  let c = tintMats.get(key);
+  if (!c){
+    c = base.clone();
+    const col = new THREE.Color(hex).convertSRGBToLinear();
+    if (c.color) c.color.copy(col);
+    if (c.emissive && c.emissive.getHex() !== 0) c.emissive.copy(col);
+    tintMats.set(key, c);
+  }
+  return c;
+}
+function detailMat(role, base, demo){
+  const opt = DETAILS[role].opts[state.detail[role]];
+  if (opt.v === 'custom') return (role === 'head' || role === 'tail') ? tintFor(base, opt.hex) : solidFor(role, opt.hex);
+  switch (opt.v){
+    case 'paint':  return demo ? paint : cloneFor(base);
+    case 'black':  return glossBlack;
+    case 'carbon': return carbon;
+    case 'chrome': return chrome;
+    case 'smoke':  return smokeFor(base);
+    default:       return base;
+  }
+}
+const hlMat = new THREE.MeshStandardMaterial({color:0x2a7fff, emissive:0x1f6bff, emissiveIntensity:.6, roughness:.5, side:THREE.DoubleSide});
+
+/* ---------- procedural demo car ---------- */
+function extrude(shape, depth, bevel, mat){
+  const g = new THREE.ExtrudeGeometry(shape, {depth, bevelEnabled:true, bevelThickness:bevel, bevelSize:bevel, bevelSegments:5, curveSegments:28});
+  g.translate(0,0,-depth/2);
+  const m = new THREE.Mesh(g, mat); m.castShadow = true; m.receiveShadow = true; return m;
+}
+function buildCar(){
+  const car = new THREE.Group();
+  const s = new THREE.Shape();
+  s.moveTo(2.25,.34); s.lineTo(1.88,.34);
+  s.absarc(1.42,.4,.46,0,Math.PI,false);
+  s.lineTo(-.96,.34);
+  s.absarc(-1.42,.4,.46,0,Math.PI,false);
+  s.lineTo(-2.25,.34); s.lineTo(-2.33,.7);
+  s.quadraticCurveTo(-2.31,.96,-2.02,.99);
+  s.lineTo(-1.1,1.02); s.lineTo(1.0,1.0);
+  s.quadraticCurveTo(1.95,.93,2.22,.8);
+  s.quadraticCurveTo(2.37,.7,2.31,.5);
+  s.lineTo(2.25,.34);
+  car.add(extrude(s, 1.6, .12, paint));
+  const c = new THREE.Shape();
+  c.moveTo(-1.7,.98); c.lineTo(-1.15,1.45);
+  c.quadraticCurveTo(-.7,1.53,-.2,1.53);
+  c.lineTo(.42,1.5); c.lineTo(1.15,.99); c.lineTo(-1.7,.98);
+  car.add(extrude(c, 1.26, .06, glass));
+  const r = new THREE.Shape();
+  r.moveTo(-1.16,1.42); r.quadraticCurveTo(-.7,1.56,-.2,1.56);
+  r.lineTo(.4,1.54); r.lineTo(.56,1.42); r.lineTo(-1.16,1.42);
+  car.add(extrude(r, 1.26, .07, paint));
+  [-1, 1].forEach(side => {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(.09,.48,.04), paint);
+    p.position.set(-.35,1.24,side*.7); p.rotation.z = -.08; car.add(p);
+    const h = new THREE.Mesh(new THREE.BoxGeometry(.06,.06,.42), head);
+    h.position.set(2.27,.72,side*.62); h.rotation.z = -.5; h.userData = {demo:'head', base:head}; car.add(h);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(.05,.06,.5), tail);
+    t.position.set(-2.33,.82,side*.6); t.userData = {demo:'tail', base:tail}; car.add(t);
+    const mirror = new THREE.Mesh(new THREE.BoxGeometry(.16,.08,.16), paint);
+    mirror.position.set(.95,1.08,side*1.0); mirror.userData = {demo:'mirror', base:paint}; car.add(mirror);
+  });
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(.08,.16,1.0), trim);
+  grille.position.set(2.32,.5,0); car.add(grille);
+  const diff = new THREE.Mesh(new THREE.BoxGeometry(.08,.12,1.2), trim);
+  diff.position.set(-2.3,.42,0); car.add(diff);
+  [[1.42,1],[1.42,-1],[-1.42,1],[-1.42,-1]].forEach(([x,side]) => {
+    const w = new THREE.Group();
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.28,40), rubber);
+    t.rotation.x = Math.PI/2; t.castShadow = true; w.add(t);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(.27,.27,.29,40), rim);
+    disc.rotation.x = Math.PI/2; w.add(disc);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.31,20), rim);
+    hub.rotation.x = Math.PI/2; w.add(hub);
+    for (let i = 0; i < 5; i++){
+      const sp = new THREE.Mesh(new THREE.BoxGeometry(.05,.44,.04), rim);
+      sp.position.z = side*.15; sp.rotation.z = i*Math.PI*2/5; w.add(sp);
+    }
+    const cal = new THREE.Mesh(new THREE.BoxGeometry(.18,.1,.06), caliper);
+    cal.position.set(.12,.12,side*.11); w.add(cal);
+    const inner = new THREE.Mesh(new THREE.CircleGeometry(.27,32), trim);
+    inner.position.z = -side*.14; inner.rotation.y = side>0 ? Math.PI : 0; w.add(inner);
+    w.position.set(x,.38,side*.82);
+    car.add(w);
+  });
+  return car;
+}
+const demoCar = buildCar();
+scene.add(demoCar);
+let current = demoCar;
+
+/* ---------- options ---------- */
+function applyPaint(){
+  const col = COLORS[state.color], fin = FINISHES[state.finish];
+  paint.color.set(col.hex).convertSRGBToLinear();
+  Object.assign(paint, fin.p); paint.needsUpdate = true;
+  syncClones();
+  $('paintName').textContent = col.custom ? col.label : col.name;
+  $('paintCode').textContent = col.custom ? (col.cname || '自訂色') : col.code;
+  $('finishName').textContent = fin.name;
+}
+function applyRim(){
+  const r = RIMS[state.rim];
+  rim.color.set(r.hex).convertSRGBToLinear(); rim.metalness = r.metal; rim.roughness = r.rough;
+  $('rimName').textContent = optName(r);
+  syncRimTints();
+}
+function applyCaliper(){
+  const c = CALIPERS[state.caliper];
+  caliper.color.set(c.hex || '#b4141a').convertSRGBToLinear();   // demo car's factory calipers are red
+  $('calName').textContent = optName(c);
+  applyTargets();                                                 // "原廠" puts a loaded car's own calipers back
+}
+function applyDetail(role){
+  demoCar.traverse(o => { if (o.userData.demo) o.material = detailMat(o.userData.demo, o.userData.base, true); });
+  if (role) DETAILS[role].nameEl.textContent = optName(DETAILS[role].opts[state.detail[role]]);
+  applyTargets();
+}
+
+function radioGroup(el, items, get, set, render, onPick){
+  const btns = [];
+  const sync = () => btns.forEach((b, i) => { b.setAttribute('aria-checked', i === get()); b.tabIndex = i === get() ? 0 : -1; });
+  const choose = i => { set(i); sync(); onPick(); };
+  if (el.classList.contains('seg')){ el.style.gridTemplateColumns = `repeat(${items.length},1fr)`; el.classList.toggle('dense', items.length > 4); }
+  items.forEach((it, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role','radio'); render(b, it); btns.push(b);
+    b.addEventListener('click', () => {
+      if (!it.custom) return choose(i);
+      openPicker(it.title, it.hex ? it : null, pick => { Object.assign(it, pick); render(b, it); choose(i); });
+    });
+    el.appendChild(b);
+  });
+  el.addEventListener('keydown', e => {
+    const d = {ArrowRight:1,ArrowDown:1,ArrowLeft:-1,ArrowUp:-1}[e.key]; if (!d) return;
+    e.preventDefault();
+    let i = get();
+    do { i = (i + d + items.length) % items.length; } while (items[i].custom && !items[i].hex && i !== get());
+    choose(i); btns[i].focus();
+  });
+  sync();
+}
+function segRender(b, o){
+  b.textContent = '';
+  if (o.custom){
+    const dot = document.createElement('i'); dot.className = 'cdot'; dot.style.background = o.hex || RAINBOW;
+    b.append(dot, '自訂');
+    b.title = o.hex ? o.label : '選 Pantone 或自己調色';
+  } else b.textContent = o.name;
+}
+radioGroup($('swatches'), COLORS, () => state.color, i => state.color = i, (b,c) => {
+  b.className = 'sw' + (c.custom ? ' custom' : ''); b.style.background = c.hex || RAINBOW;
+  const n = c.custom ? (c.label ? c.label + '（自訂）' : '自訂色：Pantone 或自己調色') : c.name;
+  b.setAttribute('aria-label', n); b.title = n;
+}, applyPaint);
+radioGroup($('finish'), FINISHES, () => state.finish, i => state.finish = i, (b,f) => { b.textContent = f.name; }, applyPaint);
+radioGroup($('rims'), RIMS, () => state.rim, i => state.rim = i, segRender, applyRim);
+radioGroup($('calipers'), CALIPERS, () => state.caliper, i => state.caliper = i, segRender, applyCaliper);
+
+function addDetailRow(role){
+  const d = DETAILS[role];
+  const row = document.createElement('div'); row.className = 'drow'; row.dataset.role = role;
+  row.innerHTML = '<div class="label"><span></span><b></b></div><div class="seg" role="radiogroup"></div>';
+  row.querySelector('span').textContent = d.label;
+  d.nameEl = row.querySelector('b');
+  d.nameEl.textContent = optName(d.opts[state.detail[role]]);
+  if (d.custom){
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'rm'; rm.textContent = '移除'; rm.title = '移除這個自訂部位';
+    rm.onclick = () => removeCustomPart(role);
+    row.querySelector('.label').appendChild(rm);
+  }
+  const seg = row.querySelector('.seg');
+  seg.setAttribute('aria-label', d.label);
+  $('details').appendChild(row);
+  radioGroup(seg, d.opts, () => state.detail[role], i => state.detail[role] = i, segRender, () => applyDetail(role));
+}
+Object.keys(DETAILS).forEach(addDetailRow);
+
+/* ---------- colour picker ---------- */
+let pickCb = null, pickSel = null;
+function setPick(sel){
+  pickSel = sel;
+  $('pickDot').style.background = sel ? sel.hex : 'transparent';
+  $('pickLabel').textContent = sel ? sel.label + (sel.cname ? '　' + sel.cname : '') : '尚未選擇顏色';
+  $('pickApply').disabled = !sel;
+  if (sel){ $('pickColor').value = sel.hex.toLowerCase(); $('pickHex').value = sel.hex.toUpperCase(); }
+  [...$('pickGrid').children].forEach(c => c.setAttribute && c.setAttribute('aria-pressed', !!sel && c.dataset.hex === sel.hex && c.dataset.code === (sel.code || '')));
+}
+function renderPantone(q){
+  const g = $('pickGrid'); g.innerHTML = '';
+  const s = q.trim().toLowerCase();
+  const list = PANTONE.filter(([code, name]) => !s || code.toLowerCase().includes(s) || name.toLowerCase().includes(s));
+  if (!list.length){ const e = document.createElement('div'); e.className = 'pick-empty'; e.textContent = '沒有符合的色號，可以用下方「自己調色」輸入色碼。'; g.appendChild(e); return; }
+  list.forEach(([code, name, hex]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pchip'; b.dataset.hex = hex; b.dataset.code = 'PANTONE ' + code;
+    b.innerHTML = '<i></i><span></span><small></small>';
+    b.children[0].style.background = hex; b.children[1].textContent = code; b.children[2].textContent = name;
+    b.onclick = () => setPick({hex, label:'PANTONE ' + code, code:'PANTONE ' + code, cname:name});
+    g.appendChild(b);
+  });
+  if (pickSel) setPick(pickSel);
+}
+function openPicker(title, current, cb){
+  pickCb = cb;
+  $('pickTitle').textContent = '自訂顏色：' + title;
+  $('pickSearch').value = '';
+  pickSel = current ? {hex:current.hex, label:current.label, code:current.code, cname:current.cname} : null;
+  renderPantone('');
+  setPick(pickSel);
+  $('picker').hidden = false;
+  $('pickSearch').focus();
+}
+function closePicker(){ $('picker').hidden = true; pickCb = null; }
+$('pickSearch').addEventListener('input', e => renderPantone(e.target.value));
+$('pickColor').addEventListener('input', e => { const h = e.target.value.toUpperCase(); setPick({hex:h, label:'自選 ' + h, code:null, cname:'自訂色'}); });
+$('pickHex').addEventListener('change', e => {
+  let v = e.target.value.trim(); if (v[0] !== '#') v = '#' + v;
+  if (/^#[0-9a-f]{6}$/i.test(v)){ v = v.toUpperCase(); setPick({hex:v, label:'自選 ' + v, code:null, cname:'自訂色'}); }
+  else { e.target.value = pickSel ? pickSel.hex : ''; say('色碼格式是 # 加 6 位數字或字母，例如 #C8102E。'); }
+});
+$('pickApply').onclick = () => { if (pickSel && pickCb) pickCb({...pickSel}); closePicker(); };
+$('pickCancel').onclick = closePicker;
+$('pickClose').onclick = closePicker;
+$('picker').addEventListener('click', e => { if (e.target === $('picker')) closePicker(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('picker').hidden){ closePicker(); e.stopImmediatePropagation(); } }, true);
+
+const spinBtn = $('spin');
+const setSpin = on => { controls.autoRotate = on; spinBtn.setAttribute('aria-pressed', on); };
+setSpin(controls.autoRotate);
+spinBtn.onclick = () => setSpin(!controls.autoRotate);
+$('reset').onclick = () => { camera.position.copy(HOME); controls.target.set(0,.7,0); controls.update(); };
+
+/* =========================================================
+   Loaded cars. Every mesh "slot" (mesh + material index) gets a role:
+   paint · rim · tire · caliper · orig. Paint and caliper are set per material
+   (body panels share one), rims and tyres per part.
+   ========================================================= */
+const statusEl = $('status');
+let userModel = null, sayTimer = 0;
+let groups = [];                    // materials grouped by name
+const groupOf = new Map();          // material uuid -> group
+const slotRole = new Map();         // 'meshUuid:index' -> role, overrides the group role
+const clones = new Map(), tireClones = new Map();
+const highlightKeys = new Set();   // parts currently picked in fix mode
+
+function say(msg, sticky){
+  clearTimeout(sayTimer);
+  statusEl.textContent = msg; statusEl.hidden = !msg;
+  if (msg && !sticky) sayTimer = setTimeout(() => statusEl.hidden = true, Math.max(4000, msg.length * 140));
+}
+const slotsOf = o => Array.isArray(o.userData.orig) ? o.userData.orig : [o.userData.orig];
+const keyOf = (o, k) => o.uuid + ':' + k;
+function roleOf(o, k, m){
+  const s = slotRole.get(keyOf(o, k)); if (s) return s;
+  const g = groupOf.get(m.uuid); return g ? g.role : null;
+}
+function cloneFor(orig){            // body paint without each panel's baked shadows
+  let c = clones.get(orig.uuid);
+  if (!c){ c = paint.clone(); c.side = orig.side; clones.set(orig.uuid, c); }
+  return c;
+}
+function syncClones(){
+  clones.forEach(c => {
+    c.color.copy(paint.color);
+    ['metalness','roughness','clearcoat','clearcoatRoughness','envMapIntensity'].forEach(k => c[k] = paint[k]);
+    c.needsUpdate = true;
+  });
+}
+const rimTints = new Map();
+function rimTintFor(orig){
+  let c = rimTints.get(orig.uuid);
+  if (!c){ c = orig.clone(); rimTints.set(orig.uuid, c); syncRimTints(); }
+  return c;
+}
+function syncRimTints(){
+  rimTints.forEach(c => { c.color.copy(rim.color).multiplyScalar(1.35); c.needsUpdate = true; });
+}
+function tireFor(orig){             // matte black rubber, keeping sidewall relief if the model has it
+  if (!orig.normalMap) return rubber;
+  let c = tireClones.get(orig.uuid);
+  if (!c){ c = rubber.clone(); c.normalMap = orig.normalMap; c.normalScale.copy(orig.normalScale); tireClones.set(orig.uuid, c); }
+  return c;
+}
+/* view-only hiding while fixing parts: never saved, cleared when fix mode ends */
+const hiddenMat = new THREE.MeshBasicMaterial({visible:false});
+const hiddenKeys = new Set();
+let shellHidden = false;
+const isGlass = m => !!m && ((m.transparent && m.opacity < .95) || m.transmission > 0 || /glass|glas|window|windshield|cristal|vidrio|windows/i.test(m.name || ''));
+function materialFor(o, k, m){
+  const key = keyOf(o, k);
+  if (hiddenKeys.has(key) || (shellHidden && (roleOf(o, k, m) === 'paint' || isGlass(m) || /roof|techo|dach|toit/i.test(m.name || '')))) return hiddenMat;
+  if (highlightKeys.has(key)) return hlMat;
+  switch (roleOf(o, k, m)){
+    case 'paint':   return cloneFor(m);
+    case 'rim':     return (m.map && !o.userData.split) ? rimTintFor(m) : rim;
+    case 'tire':    return tireFor(m);
+    case 'caliper': return state.caliper === 0 ? m : caliper;
+    default:        { const r = roleOf(o, k, m); return DETAILS[r] ? detailMat(r, m, false) : m; }
+  }
+}
+function applyTargets(){
+  if (!userModel) return;
+  userModel.traverse(o => {
+    if (!o.isMesh) return;
+    const s = slotsOf(o);
+    o.material = Array.isArray(o.userData.orig) ? s.map((m, k) => materialFor(o, k, m)) : materialFor(o, 0, s[0]);
+  });
+  syncClones();
+}
+
+/* --- colour a material really shows --- */
+const sCan = document.createElement('canvas'); sCan.width = sCan.height = 8;
+const sCtx = sCan.getContext('2d', {willReadFrequently:true});
+function avgTexture(tex){
+  try {
+    if (!tex || !tex.image) return null;
+    sCtx.clearRect(0,0,8,8); sCtx.drawImage(tex.image, 0, 0, 8, 8);
+    const d = sCtx.getImageData(0,0,8,8).data; let r = 0, g = 0, b = 0;
+    for (let i = 0; i < 64; i++){ r += d[i*4]; g += d[i*4+1]; b += d[i*4+2]; }
+    return new THREE.Color(r/16320, g/16320, b/16320).convertSRGBToLinear();
+  } catch (e) { return null; }
+}
+function effectiveColor(gr){
+  const m = gr.mats[0], c = m.color ? m.color.clone() : new THREE.Color(1,1,1);
+  const t = avgTexture(m.map); if (t) c.multiply(t);
+  const ca = m.vertexColors && gr.objs[0] && gr.objs[0].geometry.attributes.color;
+  if (ca){
+    const v = new THREE.Color(0,0,0), step = Math.max(1, Math.floor(ca.count / 200)); let n = 0;
+    for (let i = 0; i < ca.count; i += step){ v.r += ca.getX(i); v.g += ca.getY(i); v.b += ca.getZ(i); n++; }
+    const sc = ca.normalized ? (ca.array instanceof Uint8Array ? 255 : ca.array instanceof Uint16Array ? 65535 : 1) : 1;
+    c.multiply(v.multiplyScalar(1 / (n * sc)));
+  }
+  return c;
+}
+const hexOf = c => '#' + c.clone().convertLinearToSRGB().getHexString();
+
+/* --- inward-facing normals render dark: flip them back --- */
+function fixNormals(mesh, done){
+  const g = mesh.geometry;
+  if (done.has(g.uuid)) return false; done.add(g.uuid);
+  const p = g.attributes.position, n = g.attributes.normal, idx = g.index;
+  if (!p || !n) return false;
+  const tris = Math.floor((idx ? idx.count : p.count) / 3), step = Math.max(1, Math.floor(tris / 300));
+  const a = new V3(), b = new V3(), c = new V3(), fn = new V3(), vn = new V3(), t = new V3();
+  let agree = 0, disagree = 0;
+  for (let i = 0; i < tris; i += step){
+    const i0 = idx ? idx.getX(i*3) : i*3, i1 = idx ? idx.getX(i*3+1) : i*3+1, i2 = idx ? idx.getX(i*3+2) : i*3+2;
+    a.fromBufferAttribute(p,i0); b.fromBufferAttribute(p,i1); c.fromBufferAttribute(p,i2);
+    THREE.Triangle.getNormal(a, b, c, fn);
+    vn.fromBufferAttribute(n,i0).add(t.fromBufferAttribute(n,i1)).add(t.fromBufferAttribute(n,i2));
+    const d = fn.dot(vn); if (d > 0) agree++; else if (d < 0) disagree++;
+  }
+  if (disagree > 8 && disagree > agree * 2){
+    const lim = n.array instanceof Int8Array ? 127 : n.array instanceof Int16Array ? 32767 : Infinity;
+    for (let i = 0; i < n.count; i++) n.setXYZ(i, Math.min(lim, -n.getX(i)), Math.min(lim, -n.getY(i)), Math.min(lim, -n.getZ(i)));
+    n.needsUpdate = true; return true;
+  }
+  return false;
+}
+
+/* --- body paint: named paint material if it is a real share of the car, otherwise the biggest
+       strongly coloured exterior material; plus every exterior material of the same colour --- */
+const PAINT_RE = /paint|body|carpaint|car_paint|coloured|colored|exterior|door|車身|車漆/i;
+const EXCLUDE_RE = /glass|window|cristal|vidrio|light|lamp|(^|[^a-z])led([^a-z]|$)|chrome|cromo|logo|badge|emblem|rubber|tire|tyre|neum|interior|seat|leather|stitch|costura|cal+ip|brake|freno|disc|(^|[^a-z])rim|wheel|llanta|plate|matricula|carbon|plastic|grill|speaker|dash|steer|mirror_glass|ao_|paint_?black|paint_?plastic|satinblack/i;
+function autoPaint(){
+  const hsl = {};
+  groups.forEach(g => { g.col = effectiveColor(g); g.col.clone().convertLinearToSRGB().getHSL(hsl); g.sat = hsl.s; g.lum = hsl.l; g.role = null; });
+  const cand = groups.filter(g => !EXCLUDE_RE.test(g.name));
+  const byWeight = (a, b) => b.weight - a.weight;
+  const named = cand.filter(g => PAINT_RE.test(g.name)).sort(byWeight)[0];
+  const vivid = cand.filter(g => g.sat > .35 && g.lum > .1 && g.lum < .85).sort(byWeight)[0];
+  const primary = (named && (!vivid || named.weight >= vivid.weight * .3)) ? named : (vivid || named || cand.sort(byWeight)[0]);
+  if (!primary) return;
+  const p = primary.col.clone().convertLinearToSRGB();
+  cand.forEach(g => {
+    const q = g.col.clone().convertLinearToSRGB();
+    if (g === primary || Math.hypot(p.r-q.r, p.g-q.g, p.b-q.b) < .16 || (PAINT_RE.test(g.name) && g.weight >= primary.weight * .05)) g.role = 'paint';
+  });
+  groups.forEach(g => { if (!g.role && /cal+ip|pinza|bremssattel|etrier/i.test(g.name)) g.role = 'caliper'; });
+}
+
+/* --- wheels ---
+   A tyre touches the ground; a rim sits inside it, above the ground.
+   When rim and tyre are one part with one material, split its triangles by distance from the axle:
+   the outer ring (beyond ~77% of the radius) is tyre, the rest is rim. */
+const WHEEL_NODE_RE = /wheel|(^|[^a-z])rim|llanta|rueda|felge|jante|alloy/i;
+const NOT_RIM_RE = /tire|tyre|tread|rubber|neum|goma|reifen|pneu|cal+ip|brake|freno|pinza|disc|disk|logo|badge|emblem|bolt|nut|valve/i;
+const TIRE_RE = /tire|tyre|tread|rubber|neum|goma|reifen|pneu/i;
+const isRubber = (m, g) => g && g.lum < .3 && g.sat < .25 && !(m.metalness > .5);
+function analyseWheel(g){
+  if (g.userData.wheelKind !== undefined) return g.userData.wheelKind;
+  g.computeBoundingBox();
+  const s = g.boundingBox.getSize(new V3), c = g.boundingBox.getCenter(new V3), d = [s.x, s.y, s.z];
+  const axis = d.indexOf(Math.min(...d)), o2 = d.filter((_, i) => i !== axis);
+  let kind = null;
+  if (Math.abs(o2[0]/o2[1] - 1) < .15 && d[axis] < o2[0] * .7){
+    const R = Math.max(...o2) / 2, p = g.attributes.position, step = Math.max(1, Math.floor(p.count / 4000)), v = new V3();
+    let inner = 0, n = 0;
+    for (let i = 0; i < p.count; i += step){ v.fromBufferAttribute(p, i).sub(c); v.setComponent(axis, 0); if (v.length() < .6 * R) inner++; n++; }
+    kind = inner / n > .06 ? 'wheel' : 'tire';
+    g.userData.wheelInfo = {axis, c, R};
+  }
+  g.userData.wheelKind = kind;
+  return kind;
+}
+function splitWheel(o){
+  const g = o.geometry;
+  if (!g.userData.wheelSplit){
+    const {axis, c, R} = g.userData.wheelInfo, p = g.attributes.position;
+    if (!g.index){
+      const n = p.count, ix = new (n > 65535 ? Uint32Array : Uint16Array)(n);
+      for (let i = 0; i < n; i++) ix[i] = i;
+      g.setIndex(new THREE.BufferAttribute(ix, 1));
+    }
+    const src = g.index.array, inner = [], outer = [], v = new V3(), t = new V3();
+    for (let i = 0; i < src.length; i += 3){
+      v.fromBufferAttribute(p, src[i]).add(t.fromBufferAttribute(p, src[i+1])).add(t.fromBufferAttribute(p, src[i+2])).multiplyScalar(1/3).sub(c);
+      v.setComponent(axis, 0);
+      (v.length() > .775 * R ? outer : inner).push(src[i], src[i+1], src[i+2]);
+    }
+    const out = new src.constructor(src.length); out.set(inner, 0); out.set(outer, inner.length);
+    g.setIndex(new THREE.BufferAttribute(out, 1));
+    g.clearGroups(); g.addGroup(0, inner.length, 0); g.addGroup(inner.length, outer.length, 1);
+    g.userData.wheelSplit = true;
+  }
+  const m = slotsOf(o)[0];
+  o.userData.orig = [m, m]; o.userData.split = true;
+  slotRole.set(keyOf(o, 0), 'rim'); slotRole.set(keyOf(o, 1), 'tire');
+}
+function autoWheels(){
+  userModel.updateMatrixWorld(true);
+  const all = new THREE.Box3().setFromObject(userModel), A = all.getSize(new V3);
+  const H = A.y, ground = all.min.y, alongX = A.x >= A.z;
+  const b = new THREE.Box3(), sz = new V3(), meshes = [];
+  userModel.traverse(o => { if (o.isMesh) meshes.push(o); });
+  meshes.forEach(o => {
+    b.setFromObject(o); b.getSize(sz);
+    const len = alongX ? sz.x : sz.z, lat = alongX ? sz.z : sz.x;
+    const wheelLike = (b.min.y - ground) < H * .035 && sz.y > H * .22 && sz.y < H * .75 && len / sz.y > .75 && len / sz.y < 1.3 && lat < H * .5;
+    const mats = slotsOf(o);
+    let inWheel = false;
+    for (let n = o; n && n !== userModel; n = n.parent) if (WHEEL_NODE_RE.test(n.name)){ inWheel = true; break; }
+
+    if (wheelLike && mats.length === 1){
+      if (TIRE_RE.test(mats[0].name || '') || TIRE_RE.test(o.name)){ slotRole.set(keyOf(o, 0), 'tire'); return; }
+      const kind = analyseWheel(o.geometry);
+      if (kind === 'tire'){ slotRole.set(keyOf(o, 0), 'tire'); return; }
+      if (kind === 'wheel'){ splitWheel(o); return; }
+    }
+    if (wheelLike && mats.length > 1){
+      let tk = -1, tl = 9;
+      mats.forEach((m, k) => {
+        const g = groupOf.get(m.uuid);
+        if (TIRE_RE.test(m.name || '')){ tk = k; tl = -1; }
+        else if (tl >= 0 && g && g.sat < .25 && !(m.metalness > .5) && !/cal+ip|brake|disc|logo|badge|emblem/i.test(m.name || '') && g.lum < tl){ tl = g.lum; tk = k; }
+      });
+      mats.forEach((m, k) => {
+        const g = groupOf.get(m.uuid);
+        if (k === tk) slotRole.set(keyOf(o, k), 'tire');
+        else if (!NOT_RIM_RE.test(m.name || '') && !(g && g.role)) slotRole.set(keyOf(o, k), 'rim');
+      });
+      return;
+    }
+    mats.forEach((m, k) => {
+      const g = groupOf.get(m.uuid), nm = m.name || '';
+      if (TIRE_RE.test(nm)){ slotRole.set(keyOf(o, k), 'tire'); return; }
+      if (NOT_RIM_RE.test(nm) || NOT_RIM_RE.test(o.name) || (g && g.role) || (isRubber(m, g) && !m.map)) return;
+      if (WHEEL_NODE_RE.test(nm) || inWheel) slotRole.set(keyOf(o, k), 'rim');
+    });
+  });
+}
+
+/* --- lights and mirrors: by name (part or material), per part --- */
+const DETAIL_RE = {
+  tail:   /tail|rear.?l(igh)?t|rear.?lamp|stop.?l|piloto|calavera|optica.?tras|rueckl|red_?glass|(^|[^a-z])tl([^a-z]|$)/i,
+  head:   /head.?l(igh)?t|headlamp|front.?lamp|faro|optica.?del|scheinwerfer|(^|[^a-z])hl([^a-z]|$)/i,
+  mirror: /mirror|retrovisor|espejo|spiegel/i,
+};
+let meshList = [], modelAlongX = true, modelLen = 4.6, storeKey = null;
+function autoDetails(){
+  meshList.forEach(o => slotsOf(o).forEach((m, k) => {
+    const key = keyOf(o, k); if (slotRole.has(key)) return;
+    const s = [o.name, o.parent && o.parent.name, m.name].filter(Boolean).join(' ');
+    for (const r of ['tail','head','mirror']){
+      if (!DETAIL_RE[r].test(s)) continue;
+      if (r === 'mirror' && /glass|cristal|vidrio|reflect|chrome/i.test(m.name || '')) break;   // the mirror glass stays a mirror
+      slotRole.set(key, r); break;
+    }
+  }));
+}
+/* the same part on the other side of the car: same material, mirrored position, similar size */
+function partnerOf(o, k){
+  const m = slotsOf(o)[k], g = groupOf.get(m.uuid), lat = modelAlongX ? 'z' : 'x', tol = modelLen * .04;
+  const b = new THREE.Box3().setFromObject(o), c = b.getCenter(new V3()), s = b.getSize(new V3()).length();
+  if (Math.abs(c[lat]) < tol * .5) return null;                  // part sits on the centre line
+  let best = null, bd = Infinity;
+  const pb = new THREE.Box3(), pc = new V3();
+  meshList.forEach(p => {
+    if (p === o) return;
+    const pm = slotsOf(p)[k]; if (!pm || groupOf.get(pm.uuid) !== g) return;
+    pb.setFromObject(p); pb.getCenter(pc); pc[lat] = -pc[lat];
+    const d = pc.distanceTo(c);
+    if (d < tol && Math.abs(pb.getSize(new V3()).length() - s) < s * .2 && d < bd){ bd = d; best = p; }
+  });
+  return best;
+}
+/* remember the owner's corrections for this file in this browser */
+function mapData(){
+  return {v:1,
+    groups: Object.fromEntries(groups.map(g => [g.name, g.role])),
+    slots: [...slotRole].map(([key, r]) => { const [u, k] = key.split(':'); const o = meshList.find(x => x.uuid === u); return [o ? o.userData.idx : -1, +k, r]; }).filter(s => s[0] >= 0),
+    splits: meshList.filter(o => o.userData.split).map(o => o.userData.idx),
+    custom: Object.keys(DETAILS).filter(r => DETAILS[r].custom).map(r => [r, DETAILS[r].label])};
+}
+function saveMap(){
+  const d = JSON.stringify(mapData());
+  $('mapOut').value = d;
+  try { if (storeKey) localStorage.setItem(storeKey, d); } catch (e) {}
+}
+function loadMap(){
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(storeKey)); } catch (e) {}
+  if (!d || d.v !== 1) return false;
+  (d.custom || []).forEach(([id, name]) => { if (!ROLE_NAME[id]) addCustomPart(id, name); });
+  (d.splits || []).forEach(i => { const o = meshList[i]; if (o && !o.userData.split && analyseWheel(o.geometry) === 'wheel') splitWheel(o); });
+  groups.forEach(g => { if (g.name in d.groups) g.role = (d.groups[g.name] in ROLE_NAME) ? d.groups[g.name] : null; });
+  slotRole.clear();
+  (d.slots || []).forEach(([i, k, r]) => { const o = meshList[i]; if (o && r in ROLE_NAME) slotRole.set(keyOf(o, k), r); });
+  return true;
+}
+/* Tyres split into many pieces (sidewall, tread…): any part around a known wheel whose
+   vertices sit on the outer ring of that wheel is tyre, not rim. */
+function tiresByRadius(){
+  const lat = modelAlongX ? 'z' : 'x', lon = modelAlongX ? 'x' : 'z';
+  const wheels = [], b = new THREE.Box3(), c = new V3(), s = new V3();
+  meshList.forEach(o => slotsOf(o).forEach((m, k) => {
+    if (roleOf(o, k, m) !== 'tire') return;
+    b.setFromObject(o); b.getCenter(c); b.getSize(s);
+    const R = Math.max(s.y, s[lon]) / 2;
+    if (R < modelLen * .05 || R > modelLen * .2) return;              // a piece, not a whole tyre
+    const w = wheels.find(w => w.c.distanceTo(c) < w.R * .5);
+    if (w) w.R = Math.max(w.R, R); else wheels.push({c: c.clone(), R});
+  }));
+  if (!wheels.length) return;
+  const v = new V3();
+  meshList.forEach(o => {
+    const mats = slotsOf(o); if (mats.length !== 1 || o.userData.split) return;
+    const k = 0, m = mats[0], key = keyOf(o, k), r0 = roleOf(o, k, m);
+    if (r0 === 'tire' || r0 === 'paint' || r0 === 'caliper') return;
+    b.setFromObject(o); b.getCenter(c);
+    const w = wheels.find(w => Math.hypot(c[lon] - w.c[lon], c.y - w.c.y) < w.R && Math.abs(c[lat] - w.c[lat]) < w.R);
+    if (!w) return;
+    const p = o.geometry.attributes.position, step = Math.max(1, Math.floor(p.count / 400));
+    let outer = 0, n = 0;
+    for (let i = 0; i < p.count; i += step){
+      v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+      if (Math.hypot(v[lon] - w.c[lon], v.y - w.c.y) > .8 * w.R) outer++;
+      n++;
+    }
+    if (n && outer / n > .75) slotRole.set(key, 'tire');
+  });
+}
+function autoAll(){
+  slotRole.clear();
+  autoPaint();
+  autoWheels();
+  tiresByRadius();
+  autoDetails();
+}
+
+/* --- panel: parts check --- */
+const ROLE_NAME = {paint:'車身', mirror:'後視鏡', head:'大燈', tail:'尾燈', rim:'輪圈', tire:'輪胎', caliper:'卡鉗', orig:'不改色'};
+function countParts(){
+  const c = {}; Object.keys(ROLE_NAME).forEach(r => c[r] = new Set());
+  userModel.traverse(o => { if (!o.isMesh) return; slotsOf(o).forEach((m, k) => { const r = roleOf(o, k, m); if (c[r]) c[r].add(o.uuid); }); });
+  const n = {}; Object.keys(c).forEach(r => n[r] = c[r].size); return n;
+}
+function renderParts(){
+  const n = countParts(), el = $('parts');
+  const items = [
+    ['車身', n.paint ? 'ok' : 'warn', n.paint ? '已辨識' : '沒找到'],
+    ['輪圈', n.rim ? 'ok' : 'warn', n.rim ? n.rim + ' 個' : '沒找到'],
+    ['輪胎', n.tire ? 'ok' : 'warn', n.tire ? n.tire + ' 個' : '沒找到'],
+    ['卡鉗', n.caliper ? 'ok' : 'none', n.caliper ? n.caliper + ' 個' : '未辨識'],
+    ...Object.keys(DETAILS).map(r => [ROLE_NAME[r], n[r] ? 'ok' : 'none', n[r] ? n[r] + ' 個' : '未辨識']),
+  ];
+  el.innerHTML = '';
+  items.forEach(([label, cls, text]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'part ' + cls;
+    b.innerHTML = '<span class="pdot"></span><span></span><em></em>';
+    b.children[1].textContent = label; b.children[2].textContent = text;
+    b.title = '點車上的' + label + '來修正';
+    b.onclick = startFix;
+    el.appendChild(b);
+  });
+  const list = $('matList'); list.innerHTML = '';
+  groups.forEach(g => {
+    const row = document.createElement('div'); row.className = 'mat';
+    row.innerHTML = '<i class="mdot"></i><span class="mname"></span><span></span>';
+    row.children[0].style.background = hexOf(g.col);
+    row.children[1].textContent = g.name;
+    row.children[2].textContent = (ROLE_NAME[g.role] || '—') + ' · ' + g.meshes.size;
+    list.appendChild(row);
+  });
+  $('mapOut').value = JSON.stringify(mapData());
+  return n;
+}
+function setModelUI(name, credit){
+  const user = !!name;
+  $('brandSub').textContent = user ? (credit ? '內建車款' : '你載入的檔案') : '內建示範車款';
+  $('modelName').textContent = user ? name : 'Demo 跑車';
+  $('modelSub').textContent = user ? '下面是系統認出的部位，綠點代表已辨識' : '內建示範車款，所有選項都能直接試';
+  $('parts').hidden = $('fixBtn').hidden = $('devInfo').hidden = $('resetMap').hidden = !user;
+  const cr = $('credit'); cr.textContent = ''; cr.hidden = !credit;
+  if (credit){
+    cr.append(`模型作者：${credit.author}｜授權：${credit.license}`);
+    if (credit.url){ const a = document.createElement('a'); a.href = credit.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = '原始頁面'; cr.append('｜', a); }
+  }
+}
+
+/* --- load a .glb (built-in or the owner's own file) --- */
+let loadToken = 0, lastLoad = null, stallTimer = 0, prevSel = 'demo';
+function armStall(){
+  clearTimeout(stallTimer);
+  stallTimer = setTimeout(() => { $('loadMsg').textContent = '載入比平常久，可能是網路較慢。可以繼續等，或按取消回到原本的車款。'; }, 25000);
+}
+function showLoading(name){
+  $('loading').hidden = false;
+  $('loadTitle').textContent = `正在載入「${name}」`;
+  $('loadBar').style.width = '0%';
+  $('loadMsg').textContent = '第一次開啟需要下載模型，通常幾秒鐘就好。';
+  $('loadRetry').hidden = true;
+  armStall();
+}
+function hideLoading(){ clearTimeout(stallTimer); $('loading').hidden = true; }
+function loadFailed(name){
+  clearTimeout(stallTimer);
+  $('loadTitle').textContent = `「${name}」載入失敗`;
+  $('loadMsg').textContent = '可能是網路中斷或檔案有問題。按重試再試一次，或按取消回到原本的車款。';
+  $('loadRetry').hidden = false;
+}
+$('loadCancel').onclick = () => { loadToken++; hideLoading(); $('carSelect').value = prevSel; say(''); };
+$('loadRetry').onclick = () => { if (lastLoad) loadModel(...lastLoad); };
+function loadModel(url, name, key, credit){
+  const token = ++loadToken;
+  stopFix();
+  lastLoad = [url, name, key, credit];
+  say('');
+  showLoading(name);
+  new THREE.GLTFLoader().load(url, gltf => {
+    if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    if (token !== loadToken) return;                 // a newer choice replaced this one
+    stopFix();
+    if (userModel) scene.remove(userModel);
+    userModel = gltf.scene;
+    let box = new THREE.Box3().setFromObject(userModel);
+    const size = box.getSize(new V3());
+    userModel.scale.multiplyScalar(4.6 / Math.max(size.x, size.z));
+    box = new THREE.Box3().setFromObject(userModel);
+    const ctr = box.getCenter(new V3());
+    userModel.position.sub(new V3(ctr.x, box.min.y, ctr.z));
+
+    groups = []; groupOf.clear(); slotRole.clear(); clones.clear(); tireClones.clear(); rimTints.clear(); tintMats.clear(); smokeClones.clear(); highlightKeys.clear();
+    const byName = new Map(), doneGeo = new Set();
+    userModel.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true;
+      o.userData.orig = o.material;
+      fixNormals(o, doneGeo);
+      slotsOf(o).forEach(m => {
+        const name = m.name || '未命名材質';
+        let gr = byName.get(name);
+        if (!gr){ gr = {name, mats:[], meshes:new Set(), objs:[], weight:0, role:null}; byName.set(name, gr); groups.push(gr); }
+        if (!groupOf.has(m.uuid)){ gr.mats.push(m); groupOf.set(m.uuid, gr); }
+        if (!gr.meshes.has(o.uuid)){ gr.meshes.add(o.uuid); gr.objs.push(o); gr.weight += o.geometry.attributes.position.count; }
+      });
+    });
+    meshList = []; userModel.traverse(o => { if (o.isMesh){ o.userData.idx = meshList.length; meshList.push(o); } });
+    const A = new THREE.Box3().setFromObject(userModel).getSize(new V3());
+    modelAlongX = A.x >= A.z; modelLen = Math.max(A.x, A.z);
+    storeKey = key;
+    removeAllCustom();
+    autoAll();
+    const restored = loadMap();
+    groups.sort((x, y) => ((y.role ? 1 : 0) - (x.role ? 1 : 0)) || (y.weight - x.weight));
+    applyTargets();
+    scene.remove(current); scene.add(userModel); current = userModel;
+    setModelUI(name, credit);
+    const n = renderParts();
+    hideLoading(); prevSel = $('carSelect').value;
+    say(restored ? '載入完成，已套用你上次對這個檔案做的部位修正。'
+      : n.paint && n.rim && n.tire ? '載入完成。如果有地方顏色不對，按右側「修正部位」。'
+      : '載入完成，但有部位沒認出來（右側橘色標示），按「修正部位」點一下那個地方就好。');
+  }, xhr => {
+    if (token !== loadToken) return;
+    armStall();
+    if (xhr.total){
+      $('loadBar').style.width = Math.round(xhr.loaded / xhr.total * 100) + '%';
+      if (xhr.loaded >= xhr.total) $('loadMsg').textContent = '下載完成，正在整理車款和部位…';
+    }
+  }, () => { if (token === loadToken) loadFailed(name); });
+}
+function showDemo(){
+  loadToken++; hideLoading(); prevSel = 'demo'; stopFix(); removeAllCustom();
+  scene.remove(current); scene.add(demoCar); current = demoCar; userModel = null;
+  $('file').value = ''; $('carSelect').value = 'demo'; setModelUI(null); say('');
+}
+(() => {
+  const sel = $('carSelect');
+  const opt = (v, text, dis) => { const o = document.createElement('option'); o.value = v; o.textContent = text; o.disabled = !!dis; sel.appendChild(o); return o; };
+  opt('demo', 'Demo 跑車');
+  MODELS.forEach(m => opt(m.id, m.missing ? m.name + '（尚未提供模型檔）' : m.name, m.missing));
+  opt('file', '自己載入的檔案').hidden = true;
+  sel.addEventListener('change', () => {
+    if (sel.value === 'demo') return showDemo();
+    const m = MODELS.find(x => x.id === sel.value); if (!m || m.missing) return;
+    loadModel(`models/${m.id}.gltf.json`, m.name, 'cfgmap:builtin:' + m.id, m.credit);
+  });
+})();
+$('file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!/\.glb$/i.test(f.name)){ say('目前只支援單一 .glb 檔，.gltf 請先轉成 .glb。'); return; }
+  const o = [...$('carSelect').options].find(x => x.value === 'file');
+  o.hidden = false; o.textContent = f.name.replace(/\.glb$/i, '') + '（自己的檔案）'; $('carSelect').value = 'file';
+  loadModel(URL.createObjectURL(f), f.name.replace(/\.glb$/i, ''), 'cfgmap:' + f.name + ':' + f.size, null);
+});
+$('resetMap').onclick = () => {
+  try { if (storeKey) localStorage.removeItem(storeKey); } catch (e) {}
+  removeAllCustom(); autoAll(); applyTargets(); renderParts();
+  say('已清除你的修正，改回自動辨識的結果。');
+};
+$('copyMap').onclick = () => {
+  const ta = $('mapOut');
+  navigator.clipboard.writeText(ta.value).then(() => say('部位對應資料已複製。'), () => { ta.select(); say('請按 Ctrl+C 複製選取的文字。'); });
+};
+
+
+/* --- fix mode: tap a part, say what it is --- */
+const ICON = {
+  paint:  '<path d="M3 20v-3l4-1 4-5h10l5 5 3 1v3z"/><circle cx="9" cy="21" r="2.6"/><circle cx="23" cy="21" r="2.6"/>',
+  mirror: '<path d="M6 11h13a5 5 0 0 1 5 5v0a5 5 0 0 1-5 5H9a3 3 0 0 1-3-3z"/><path d="M24 16h5"/>',
+  head:   '<path d="M4 11h9a5 5 0 0 1 0 10H4z"/><path d="M20 12l8-2M20 16h8M20 20l8 2" stroke-linecap="round"/>',
+  tail:   '<rect x="4" y="11" width="24" height="10" rx="3"/><path d="M8 16h16" stroke-width="3" stroke-linecap="round"/>',
+  rim:    '<circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="2.5"/><path d="M16 13.5V6M18.4 16.8l7 2.6M13.6 16.8l-7 2.6M17.5 18l4.3 6M14.5 18l-4.3 6"/>',
+  tire:   '<circle cx="16" cy="16" r="12"/><circle cx="16" cy="16" r="7.5"/><path d="M16 4v3.5M16 24.5V28M4 16h3.5M24.5 16H28"/>',
+  caliper:'<circle cx="16" cy="16" r="10" stroke-dasharray="2 3"/><path d="M8.5 9.5a10 10 0 0 1 15 0" stroke-width="5" stroke-linecap="round"/>',
+  orig:   '<circle cx="16" cy="16" r="11"/><path d="M8.5 23.5l15-15" stroke-linecap="round"/>',
+};
+const ROLE_HINT = {paint:'跟著車身顏色', mirror:'跟著後視鏡選項', head:'跟著大燈選項',
+                   tail:'跟著尾燈選項', rim:'跟著輪圈選項', tire:'固定黑色橡膠', caliper:'跟著卡鉗顏色', orig:'保留原本樣子'};
+ICON.custom = '<path d="M5 6h11l11 10-9 10L5 17z"/><circle cx="11" cy="12" r="2"/>';
+ICON.add = '<circle cx="16" cy="16" r="11" stroke-dasharray="3 3"/><path d="M16 10v12M10 16h12" stroke-linecap="round"/>';
+function addRoleButton(r){
+  const b = document.createElement('button');
+  b.type = 'button'; b.dataset.role = r;
+  b.innerHTML = `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">${ICON[r] || ICON.custom}</svg><span></span><small></small>`;
+  b.querySelector('span').textContent = ROLE_NAME[r]; b.querySelector('small').textContent = ROLE_HINT[r];
+  $('roles').insertBefore(b, $('addRole'));
+}
+(() => {
+  const add = document.createElement('button');
+  add.type = 'button'; add.id = 'addRole'; add.className = 'add';
+  add.innerHTML = `<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8">${ICON.add}</svg><span>新增部位</span><small>自己取名字</small>`;
+  $('roles').appendChild(add);
+})();
+Object.keys(ROLE_NAME).forEach(addRoleButton);
+
+/* owner-named parts (spoiler, side skirts, roof…): a generic finish list, kept with this file's corrections */
+const customOpts = name => [{name:'原廠',v:'orig'},{name:'同車身',v:'paint'},{name:'亮黑',v:'black'},{name:'碳纖維',v:'carbon'},{name:'鍍鉻',v:'chrome'},{name:'自訂',v:'custom',custom:true,title:name}];
+function addCustomPart(id, name){
+  ROLE_NAME[id] = name; ROLE_HINT[id] = `跟著「${name}」選項`;
+  DETAILS[id] = {label:name, custom:true, opts:customOpts(name)};
+  state.detail[id] = 0;
+  addDetailRow(id); addRoleButton(id);
+}
+function dropCustomPart(id){
+  delete ROLE_NAME[id]; delete ROLE_HINT[id]; delete DETAILS[id]; delete state.detail[id];
+  document.querySelectorAll(`[data-role="${id}"]`).forEach(el => el.remove());
+}
+function removeCustomPart(id){
+  const name = ROLE_NAME[id];
+  [...slotRole].forEach(([key, r]) => { if (r === id) slotRole.delete(key); });
+  groups.forEach(g => { if (g.role === id) g.role = null; });
+  dropCustomPart(id);
+  applyTargets();
+  if (userModel){ renderParts(); saveMap(); }
+  say(`已移除「${name}」，那些部位回到原本的樣子。`);
+}
+function removeAllCustom(){ Object.keys(DETAILS).filter(r => DETAILS[r].custom).forEach(dropCustomPart); }
+const sheet = $('sheet');
+let fixing = false, downAt = null;
+const sel = new Map();               // key -> {o, k, m}: every part picked so far
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function startFix(){
+  if (!userModel) return;
+  fixing = true; stage.classList.add('fixing');
+  $('fixBar').hidden = false; $('hint').hidden = true;
+  setSpin(false); say('');
+}
+function stopFix(){
+  fixing = false; stage.classList.remove('fixing');
+  $('fixBar').hidden = true; $('hint').hidden = false;
+  clearSelection();
+  showAll();
+}
+function refreshViewTools(){
+  $('shellBtn').setAttribute('aria-pressed', shellHidden);
+  $('shellBtn').textContent = shellHidden ? '顯示車身' : '隱藏車身看內裝';
+  $('showAllBtn').hidden = !hiddenKeys.size;
+  controls.minDistance = (shellHidden || hiddenKeys.size) ? 1.2 : 4.5;      // let the camera get into the cabin
+}
+function showAll(){
+  const changed = shellHidden || hiddenKeys.size;
+  shellHidden = false; hiddenKeys.clear();
+  refreshViewTools();
+  if (changed && userModel) applyTargets();
+}
+$('shellBtn').onclick = () => {
+  shellHidden = !shellHidden;
+  refreshViewTools(); applyTargets();
+  say(shellHidden ? '已隱藏車身和車窗，現在可以點到內裝。滾輪可以拉近到車內。' : '車身已顯示。');
+};
+$('showAllBtn').onclick = () => { showAll(); say('全部部位都顯示了。'); };
+$('hideSel').onclick = () => {
+  if (!sel.size) return;
+  const n = sel.size;
+  sel.forEach((_, key) => hiddenKeys.add(key));
+  clearSelection();
+  refreshViewTools(); applyTargets();
+  say(`已暫時隱藏 ${n} 個部位。按上方「全部顯示」或「完成」就會回來。`);
+};
+function clearSelection(){
+  sheet.hidden = true; sel.clear();
+  newPart.hidden = true; $('roles').hidden = false;
+  if (highlightKeys.size){ highlightKeys.clear(); applyTargets(); }
+}
+function refreshSheet(){
+  if (!sel.size){ sheet.hidden = true; return; }
+  const roles = new Set([...sel.values()].map(({o, k, m}) => roleOf(o, k, m) || 'orig'));
+  const one = roles.size === 1 ? [...roles][0] : null;
+  [...$('roles').children].forEach(b => b.setAttribute('aria-pressed', b.dataset.role === one));
+  $('sheetTitle').textContent = sel.size === 1 ? '藍色標出的是哪個部位？' : `已選 ${sel.size} 個部位，它們是什麼？`;
+  $('sheetSub').textContent = (one ? '目前設定：' + ROLE_NAME[one] : '目前設定不一樣') + '。可以繼續點車上其他地方加進來，再點一次就取消。';
+  sheet.hidden = false;
+}
+$('fixBtn').onclick = startFix;
+$('fixDone').onclick = stopFix;
+$('sheetClose').onclick = clearSelection;
+document.addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!sheet.hidden) clearSelection(); else if (fixing) stopFix(); } });
+
+canvas.addEventListener('pointerdown', e => downAt = [e.clientX, e.clientY]);
+canvas.addEventListener('pointerup', e => {
+  if (!fixing || !userModel || !downAt) return;
+  if (Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;   // that was a drag
+  const r = canvas.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hits = ray.intersectObject(userModel, true).filter(h => {
+    if (!h.object.isMesh) return false;
+    for (let n = h.object; n; n = n.parent) if (!n.visible) return false;
+    const k = Array.isArray(h.object.material) ? (h.face.materialIndex || 0) : 0;
+    const cur = Array.isArray(h.object.material) ? h.object.material[k] : h.object.material;
+    return cur && cur.visible !== false;
+  });
+  const slotOf = h => slotsOf(h.object)[Array.isArray(h.object.userData.orig) ? (h.face.materialIndex || 0) : 0];
+  const hit = hits.find(h => !isGlass(slotOf(h))) || hits[0];       // look through windows to what is behind
+  if (!hit) return;                                                            // empty space keeps the selection
+  const o = hit.object, k = Array.isArray(o.userData.orig) ? (hit.face.materialIndex || 0) : 0;
+  const key = keyOf(o, k);
+  if (sel.has(key)){ sel.delete(key); highlightKeys.delete(key); }
+  else { sel.set(key, {o, k, m: slotsOf(o)[k]}); highlightKeys.add(key); }
+  applyTargets();
+  refreshSheet();
+});
+function assignRole(role){
+  if (!sel.size) return;
+  let count = 0, pairs = 0, splits = 0;
+  const groupsTouched = new Set();
+  sel.forEach(({o, k, m}) => {
+    const key = keyOf(o, k), g = groupOf.get(m.uuid);
+    count++;
+    if ((role === 'rim' || role === 'tire') && !o.userData.split && !Array.isArray(o.userData.orig) && analyseWheel(o.geometry) === 'wheel'){
+      splitWheel(o); splits++;
+    } else if (role === 'paint' || role === 'caliper'){
+      if (g){ g.role = role; groupsTouched.add(g); }
+      slotRole.delete(key);
+    } else {
+      slotRole.set(key, role);
+      const pair = ['mirror','head','tail','orig'].includes(role) ? partnerOf(o, k) : null;
+      if (pair && !sel.has(keyOf(pair, k))){ slotRole.set(keyOf(pair, k), role); pairs++; }
+    }
+  });
+  const extra = [...groupsTouched].reduce((s, g) => s + g.meshes.size, 0) - count;
+  let msg = `已把 ${count} 個部位設為${ROLE_NAME[role]}`;
+  if (role === 'orig') msg = `${count} 個部位會保留原本的樣子`;
+  if (splits) msg += `，其中 ${splits} 個同時有輪圈和輪胎，已自動分開`;
+  if (pairs) msg += `，另一側的 ${pairs} 個也一起設定了`;
+  if (extra > 0) msg += `，相同材質的另外 ${extra} 個部位也一起改了`;
+  clearSelection();
+  renderParts();
+  saveMap();
+  say(msg + '。可以繼續點其他地方，好了按「完成」。');
+}
+const newPart = $('newPart');
+function showNewPart(on){
+  newPart.hidden = !on; $('roles').hidden = on;
+  if (on){ $('newPartName').value = ''; $('newPartName').focus(); }
+}
+$('roles').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'addRole') showNewPart(true);
+  else if (b.dataset.role) assignRole(b.dataset.role);
+});
+$('cancelNew').onclick = () => showNewPart(false);
+newPart.addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('newPartName').value.trim();
+  if (!name){ $('newPartName').focus(); return; }
+  let id = Object.keys(ROLE_NAME).find(r => ROLE_NAME[r] === name);      // same name = same part
+  const isNew = !id;
+  if (isNew){ id = 'c' + Date.now().toString(36); addCustomPart(id, name); }
+  showNewPart(false);
+  assignRole(id);
+  if (isNew) say(`已新增「${name}」並套用。右側「外觀細節」可以改它的樣式。`);
+});
+
+/* ---------- loop ---------- */
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h;
+  camera.fov = w < 520 ? 42 : 32; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage); resize();
+applyPaint(); applyRim(); applyCaliper();
+Object.keys(DETAILS).forEach(r => DETAILS[r].nameEl.textContent = DETAILS[r].opts[0].name); applyDetail();
+renderer.setAnimationLoop(t => {
+  if (highlightKeys.size) hlMat.emissiveIntensity = .45 + .35 * Math.sin(t / 160);
+  controls.update(); renderer.render(scene, camera);
+});
+</script>
+
+</body></html>
