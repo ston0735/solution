@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { get as blobGet, put as blobPut } from "@vercel/blob";
 import {
   DEFAULT_SITE_CONTENT,
@@ -82,19 +83,85 @@ function safeDiagnosticString(value: unknown): string | undefined {
     : undefined;
 }
 
+export function classifyCmsBlobFailure(error: unknown): {
+  category: string;
+  constructorName?: string;
+  status?: number;
+  messageFingerprint?: string;
+} {
+  const source = isRecord(error) ? error : {};
+  const message = typeof source.message === "string" ? source.message : "";
+  const normalized = message.toLowerCase();
+  const code = safeDiagnosticString(source.code)?.toLowerCase() ?? "";
+  const status = source.status ?? source.statusCode;
+  let category = "unknown";
+
+  if (/oidc|store id|store_id/.test(normalized) || code.includes("oidc")) {
+    category = "credential_configuration";
+  } else if (
+    /invalid token|unauthori[sz]ed|forbidden|permission|access denied/.test(
+      normalized
+    ) ||
+    [401, 403].includes(typeof status === "number" ? status : 0) ||
+    code.includes("access") ||
+    code.includes("token")
+  ) {
+    category = "credential_or_access";
+  } else if (
+    /precondition|if.?match|etag|already exists/.test(normalized) ||
+    code.includes("precondition") ||
+    code.includes("already_exists") ||
+    [409, 412].includes(typeof status === "number" ? status : 0)
+  ) {
+    category = "conditional_write_conflict";
+  } else if (
+    /rate limit|too many requests/.test(normalized) ||
+    status === 429
+  ) {
+    category = "rate_limited";
+  } else if (/suspend|disabled/.test(normalized) || code.includes("suspend")) {
+    category = "store_suspended";
+  } else if (/too large|file length|payload/.test(normalized)) {
+    category = "payload_limit";
+  } else if (
+    /timeout|network|fetch|socket|econn|enotfound|eai_again/.test(normalized)
+  ) {
+    category = "network";
+  } else if (/not found/.test(normalized) || code.includes("not_found")) {
+    category = "resource_not_found";
+  } else if (message) {
+    category = "other";
+  }
+
+  return {
+    category,
+    constructorName: safeDiagnosticString(
+      error instanceof Error ? error.constructor.name : undefined
+    ),
+    status:
+      typeof status === "number" && Number.isInteger(status)
+        ? status
+        : undefined,
+    messageFingerprint: message
+      ? createHash("sha256").update(message).digest("hex").slice(0, 16)
+      : undefined,
+  };
+}
+
 function logBlobFailure(operation: string, error: unknown): void {
   const source = isRecord(error) ? error : {};
-  const status = source.status ?? source.statusCode;
   console.error(
     JSON.stringify({
       event: "cms_blob_operation_failed",
       operation,
       name: safeDiagnosticString(source.name),
       code: safeDiagnosticString(source.code),
-      status:
-        typeof status === "number" && Number.isInteger(status)
-          ? status
-          : undefined,
+      credentialSource: process.env.BLOB_READ_WRITE_TOKEN
+        ? "explicit_read_write_token"
+        : process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN
+          ? "vercel_oidc"
+          : "none",
+      ...classifyCmsBlobFailure(error),
       causeName: isRecord(source.cause)
         ? safeDiagnosticString(source.cause.name)
         : undefined,

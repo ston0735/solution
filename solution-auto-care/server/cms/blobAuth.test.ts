@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { withCmsBlobToken } from "./store";
+import { classifyCmsBlobFailure, withCmsBlobToken } from "./store";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -23,5 +23,24 @@ describe("CMS Blob credential selection", () => {
     const options = { access: "private", storeId: "store-test" };
 
     expect(withCmsBlobToken(options)).toEqual(options);
+  });
+});
+
+describe("CMS Blob failure diagnostics", () => {
+  it("classifies access failures without exposing the original message", () => {
+    const diagnostic = classifyCmsBlobFailure(
+      new Error("Access denied for token must-not-appear-in-logs")
+    );
+
+    expect(diagnostic.category).toBe("credential_or_access");
+    expect(diagnostic.messageFingerprint).toMatch(/^[a-f0-9]{16}$/);
+    expect(JSON.stringify(diagnostic)).not.toContain("must-not-appear-in-logs");
+  });
+
+  it("classifies ETag conditional write failures", () => {
+    expect(
+      classifyCmsBlobFailure(new Error("ifMatch ETag precondition failed"))
+        .category
+    ).toBe("conditional_write_conflict");
   });
 });

@@ -49,7 +49,7 @@ var CmsStorageError = class extends CmsHttpError {
 // server/cms/userStore.ts
 import { get as blobGet2, put as blobPut2 } from "@vercel/blob";
 import {
-  createHash,
+  createHash as createHash2,
   randomBytes,
   randomUUID,
   scrypt as callbackScrypt,
@@ -57,6 +57,7 @@ import {
 } from "node:crypto";
 
 // server/cms/store.ts
+import { createHash } from "node:crypto";
 import { get as blobGet, put as blobPut } from "@vercel/blob";
 
 // shared/siteContent.ts
@@ -810,16 +811,53 @@ function isRecord2(value) {
 function safeDiagnosticString(value) {
   return typeof value === "string" && /^[A-Za-z0-9_.:-]{1,80}$/.test(value) ? value : void 0;
 }
+function classifyCmsBlobFailure(error) {
+  const source = isRecord2(error) ? error : {};
+  const message = typeof source.message === "string" ? source.message : "";
+  const normalized = message.toLowerCase();
+  const code = safeDiagnosticString(source.code)?.toLowerCase() ?? "";
+  const status = source.status ?? source.statusCode;
+  let category = "unknown";
+  if (/oidc|store id|store_id/.test(normalized) || code.includes("oidc")) {
+    category = "credential_configuration";
+  } else if (/invalid token|unauthori[sz]ed|forbidden|permission|access denied/.test(
+    normalized
+  ) || [401, 403].includes(typeof status === "number" ? status : 0) || code.includes("access") || code.includes("token")) {
+    category = "credential_or_access";
+  } else if (/precondition|if.?match|etag|already exists/.test(normalized) || code.includes("precondition") || code.includes("already_exists") || [409, 412].includes(typeof status === "number" ? status : 0)) {
+    category = "conditional_write_conflict";
+  } else if (/rate limit|too many requests/.test(normalized) || status === 429) {
+    category = "rate_limited";
+  } else if (/suspend|disabled/.test(normalized) || code.includes("suspend")) {
+    category = "store_suspended";
+  } else if (/too large|file length|payload/.test(normalized)) {
+    category = "payload_limit";
+  } else if (/timeout|network|fetch|socket|econn|enotfound|eai_again/.test(normalized)) {
+    category = "network";
+  } else if (/not found/.test(normalized) || code.includes("not_found")) {
+    category = "resource_not_found";
+  } else if (message) {
+    category = "other";
+  }
+  return {
+    category,
+    constructorName: safeDiagnosticString(
+      error instanceof Error ? error.constructor.name : void 0
+    ),
+    status: typeof status === "number" && Number.isInteger(status) ? status : void 0,
+    messageFingerprint: message ? createHash("sha256").update(message).digest("hex").slice(0, 16) : void 0
+  };
+}
 function logBlobFailure(operation, error) {
   const source = isRecord2(error) ? error : {};
-  const status = source.status ?? source.statusCode;
   console.error(
     JSON.stringify({
       event: "cms_blob_operation_failed",
       operation,
       name: safeDiagnosticString(source.name),
       code: safeDiagnosticString(source.code),
-      status: typeof status === "number" && Number.isInteger(status) ? status : void 0,
+      credentialSource: process.env.BLOB_READ_WRITE_TOKEN ? "explicit_read_write_token" : process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN ? "vercel_oidc" : "none",
+      ...classifyCmsBlobFailure(error),
       causeName: isRecord2(source.cause) ? safeDiagnosticString(source.cause.name) : void 0,
       causeCode: isRecord2(source.cause) ? safeDiagnosticString(source.cause.code) : void 0
     })
@@ -1222,7 +1260,7 @@ async function verifyCmsPassword(password, record) {
   return actual.length === parsed.hash.length && timingSafeEqual(actual, parsed.hash);
 }
 function hashCmsSessionToken(token) {
-  return createHash("sha256").update(token, "utf8").digest("hex");
+  return createHash2("sha256").update(token, "utf8").digest("hex");
 }
 function cloneDocument(document) {
   return JSON.parse(JSON.stringify(document));
