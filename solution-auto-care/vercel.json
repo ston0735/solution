@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm exec vite build",
+  "buildCommand": "pnpm exec esbuild server/cms/routes.ts --bundle --platform=node --packages=external --format=esm --outfile=server/cms/routes.js && pnpm exec vite build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist/public",
   "headers": [

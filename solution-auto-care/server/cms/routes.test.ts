@@ -2,7 +2,7 @@ import { createServer, type Server } from "node:http";
 import { describe, expect, it, vi } from "vitest";
 import type { Request } from "express";
 import { CmsAuthError } from "./errors";
-import { createCmsApp, isTrustedCmsOrigin } from "./routes";
+import { createCmsApp, isTrustedCmsOrigin } from "./routes.ts";
 import type { CmsAdminUser } from "./auth";
 import {
   createCmsStore,
