@@ -1,5 +1,10 @@
-import { startLogin } from "@/const";
-import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  CmsAccessGate,
+  CmsAccountControls,
+  CmsAuthProvider,
+  useCmsAuth,
+} from "@/components/CmsAccessGate";
+import CmsUsersPanel from "@/components/CmsUsersPanel";
 import {
   CmsApiError,
   getCmsAdminSnapshot,
@@ -241,94 +246,9 @@ function ImagePreview({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-function AdminGate({
-  kind,
-  onLogin,
-}: {
-  kind: "loading" | "login" | "denied";
-  onLogin?: () => void;
-}) {
-  const isLoading = kind === "loading";
-  const isDenied = kind === "denied";
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#090a09] px-5 text-[#f1f4eb]">
-      <section className="w-full max-w-lg border border-white/12 bg-[#121411] p-8 shadow-2xl sm:p-10">
-        <div className="mb-7 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center bg-[#a9ff44] text-sm font-black text-[#0d110a]">
-            SC
-          </span>
-          <div>
-            <p className="text-[10px] font-bold tracking-[0.22em] text-[#a9ff44]">
-              SOLUTION CMS
-            </p>
-            <p className="text-xs text-white/45">內容管理工作台</p>
-          </div>
-        </div>
-        {isLoading ? (
-          <div
-            className="flex items-center gap-3 text-white/65"
-            role="status"
-            aria-live="polite"
-          >
-            <LoaderCircle
-              className="h-5 w-5 animate-spin text-[#a9ff44]"
-              aria-hidden="true"
-            />
-            <span>正在確認管理員登入狀態…</span>
-          </div>
-        ) : isDenied ? (
-          <>
-            <div className="mb-4 flex items-center gap-3 text-[#ffb4a9]">
-              <ShieldAlert className="h-5 w-5" aria-hidden="true" />
-              <h1 className="text-lg font-bold">403｜無法存取內容管理</h1>
-            </div>
-            <p className="text-sm leading-7 text-white/60">
-              目前登入帳戶不是 CMS
-              管理員。請使用獲授權的管理員帳戶，或返回網站。
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <a
-                href="/"
-                className="inline-flex items-center gap-2 border border-white/20 px-4 py-3 text-xs font-bold tracking-[0.1em] text-white/75 transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44]"
-              >
-                <ArrowLeft className="h-4 w-4" aria-hidden="true" /> 返回網站
-              </a>
-              <a
-                href="/admin/members"
-                className="inline-flex items-center gap-2 bg-[#a9ff44] px-4 py-3 text-xs font-extrabold tracking-[0.1em] text-[#11140b] transition-colors hover:bg-[#c3ff7a]"
-              >
-                前往會員管理{" "}
-                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              </a>
-            </div>
-          </>
-        ) : (
-          <>
-            <h1 className="text-xl font-bold">請先登入管理員帳戶</h1>
-            <p className="mt-3 text-sm leading-7 text-white/60">
-              這是受保護的內容管理區。登入會使用原有 Solution
-              OAuth，不會在前端建立或偽造帳戶。
-            </p>
-            <button
-              type="button"
-              onClick={onLogin}
-              className="mt-7 inline-flex items-center gap-2 bg-[#a9ff44] px-5 py-3 text-xs font-extrabold tracking-[0.1em] text-[#11140b] transition-colors hover:bg-[#c3ff7a]"
-            >
-              登入管理員帳戶{" "}
-              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </>
-        )}
-      </section>
-    </main>
-  );
-}
-
-export default function AdminContent() {
-  const { user, loading: authLoading, isAuthenticated } = useAuth();
-  const isAdmin = user?.role === "admin";
-  const adminName =
-    user?.name?.trim() || user?.email?.trim() || "Solution 管理員";
+function CmsContentEditor() {
+  const { user, clearSession } = useCmsAuth();
+  const isOwner = user?.role === "owner";
 
   const [content, setContent] = useState<SiteContent | null>(null);
   const [baseline, setBaseline] = useState("");
@@ -339,11 +259,12 @@ export default function AdminContent() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [activePage, setActivePage] = useState("");
-  const [activeTab, setActiveTab] = useState<"fields" | "posts">("fields");
+  const [activeTab, setActiveTab] = useState<"fields" | "posts" | "users">(
+    "fields"
+  );
   const [search, setSearch] = useState("");
   const [loadingDocument, setLoadingDocument] = useState(false);
   const [loadError, setLoadError] = useState("");
-  const [accessDenied, setAccessDenied] = useState(false);
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
@@ -432,8 +353,21 @@ export default function AdminContent() {
     setPublishedAt(snapshot.publishedAt ?? null);
     setLoadError("");
     setActionError("");
-    setAccessDenied(false);
   }, []);
+
+  const handleCmsAccessLost = useCallback(() => {
+    setContent(null);
+    setBaseline("");
+    setPublishedContent(null);
+    setRevision("0");
+    setUpdatedAt(null);
+    setPublishedAt(null);
+    setLoadError("");
+    setActionError("");
+    setStatusMessage("");
+    setConflictOpen(false);
+    clearSession();
+  }, [clearSession]);
 
   const fetchSnapshot = useCallback(async () => {
     setLoadingDocument(true);
@@ -443,20 +377,24 @@ export default function AdminContent() {
       const snapshot = await getCmsAdminSnapshot();
       applySnapshot(snapshot);
     } catch (error) {
-      if (error instanceof CmsApiError && error.status === 403)
-        setAccessDenied(true);
+      if (
+        error instanceof CmsApiError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        handleCmsAccessLost();
+        return;
+      }
       const message = friendlyError(error);
       setLoadError(message);
       setActionError("");
     } finally {
       setLoadingDocument(false);
     }
-  }, [applySnapshot]);
+  }, [applySnapshot, handleCmsAccessLost]);
 
   useEffect(() => {
-    if (!isAdmin) return;
     void fetchSnapshot();
-  }, [fetchSnapshot, isAdmin]);
+  }, [fetchSnapshot]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -528,12 +466,19 @@ export default function AdminContent() {
         onSuccess(result.url);
         setStatusMessage(`圖片已上傳：${result.filename}`);
       } catch (error) {
+        if (
+          error instanceof CmsApiError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          handleCmsAccessLost();
+          return;
+        }
         setActionError(`圖片上傳失敗：${friendlyError(error)}`);
       } finally {
         setUploadingTarget(null);
       }
     },
-    [content, uploadingTarget]
+    [content, handleCmsAccessLost, uploadingTarget]
   );
 
   const validateBeforeSave = useCallback(() => {
@@ -595,9 +540,11 @@ export default function AdminContent() {
           setActionError(
             "伺服器版本已更新；為保護你的修改，本機內容未被覆寫。請重新載入伺服器版本後再決定如何處理。 "
           );
-        } else if (error instanceof CmsApiError && error.status === 403) {
-          setAccessDenied(true);
-          setActionError("你的管理員權限已被撤銷，內容未寫入。 ");
+        } else if (
+          error instanceof CmsApiError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          handleCmsAccessLost();
         } else {
           setActionError(friendlyError(error));
         }
@@ -605,7 +552,14 @@ export default function AdminContent() {
         setSaving(null);
       }
     },
-    [applySavedResponse, busy, content, revision, validateBeforeSave]
+    [
+      applySavedResponse,
+      busy,
+      content,
+      handleCmsAccessLost,
+      revision,
+      validateBeforeSave,
+    ]
   );
 
   const handleReloadFromServer = useCallback(async () => {
@@ -713,10 +667,6 @@ export default function AdminContent() {
     setStatusMessage("文章已從本機草稿移除；請儲存草稿以套用。 ");
   }, []);
 
-  if (authLoading) return <AdminGate kind="loading" />;
-  if (!isAuthenticated) return <AdminGate kind="login" onLogin={startLogin} />;
-  if (!isAdmin || accessDenied) return <AdminGate kind="denied" />;
-
   const previewRouteKey =
     activeTab === "posts" ? "blog" : (currentPage?.page ?? "global");
   const previewPath = PREVIEW_PATHS[previewRouteKey] ?? "/";
@@ -747,10 +697,7 @@ export default function AdminContent() {
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <span className="hidden items-center gap-2 border border-white/10 px-3 py-2 text-xs text-white/55 md:flex">
-              <span className="h-1.5 w-1.5 bg-[#a9ff44]" aria-hidden="true" />
-              {adminName} · 管理員
-            </span>
+            <CmsAccountControls />
             <span
               className={`inline-flex items-center gap-2 border px-3 py-2 text-[11px] font-semibold ${
                 hasUnsavedChanges
@@ -764,7 +711,9 @@ export default function AdminContent() {
             <button
               type="button"
               onClick={() => void handleSave("draft")}
-              disabled={busy || !content || Boolean(loadError)}
+              disabled={
+                activeTab === "users" || busy || !content || Boolean(loadError)
+              }
               className="inline-flex items-center gap-2 border border-white/20 px-3.5 py-2.5 text-xs font-bold tracking-[0.08em] text-white/80 transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {saving === "draft" ? (
@@ -780,7 +729,9 @@ export default function AdminContent() {
             <button
               type="button"
               onClick={() => void handleSave("publish")}
-              disabled={busy || !content || Boolean(loadError)}
+              disabled={
+                activeTab === "users" || busy || !content || Boolean(loadError)
+              }
               className="inline-flex items-center gap-2 bg-[#a9ff44] px-3.5 py-2.5 text-xs font-extrabold tracking-[0.08em] text-[#11140b] transition-colors hover:bg-[#c3ff7a] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {saving === "publish" ? (
@@ -894,6 +845,32 @@ export default function AdminContent() {
                 aria-hidden="true"
               />
             </button>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("users")}
+                className={`group flex min-w-[175px] items-center gap-3 border px-3 py-3 text-left transition-colors lg:w-full ${
+                  activeTab === "users"
+                    ? "border-[#a9ff44]/45 bg-[#a9ff44]/10 text-[#a9ff44]"
+                    : "border-transparent text-white/55 hover:border-white/10 hover:bg-white/[0.03] hover:text-white/85"
+                }`}
+                aria-current={activeTab === "users" ? "page" : undefined}
+              >
+                <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">
+                    登入權限管理
+                  </span>
+                  <span className="mt-0.5 block text-[10px] text-white/35">
+                    Owner only
+                  </span>
+                </span>
+                <ChevronRight
+                  className="h-3.5 w-3.5 shrink-0 opacity-45"
+                  aria-hidden="true"
+                />
+              </button>
+            )}
           </nav>
           <div className="border-t border-white/10 p-4 sm:p-6 lg:mt-5">
             <p className="mb-3 text-[10px] font-bold tracking-[0.2em] text-white/35">
@@ -936,10 +913,11 @@ export default function AdminContent() {
             />
             <a
               href="/admin/members"
+              title="會員 CRM 使用獨立的會員 OAuth 登入，與 CMS 帳戶分開"
               className="mt-2 inline-flex w-full items-center justify-center gap-2 border border-white/12 px-3 py-2.5 text-xs text-white/65 transition-colors hover:border-[#a9ff44]/60 hover:text-[#a9ff44]"
             >
-              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />{" "}
-              會員管理
+              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" /> 會員
+              CRM（獨立 OAuth 登入）
             </a>
             <a
               href="/"
@@ -988,23 +966,33 @@ export default function AdminContent() {
                 重試讀取
               </button>
             </section>
+          ) : activeTab === "users" && isOwner ? (
+            <CmsUsersPanel />
           ) : content ? (
             <>
               <div className="mb-7 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
                 <div>
                   <p className="text-[10px] font-bold tracking-[0.22em] text-[#a9ff44]">
                     EDITORIAL CONTROL /{" "}
-                    {activeTab === "posts" ? "BLOG" : "FIELDS"}
+                    {activeTab === "users"
+                      ? "ACCESS"
+                      : activeTab === "posts"
+                        ? "BLOG"
+                        : "FIELDS"}
                   </p>
                   <h2 className="mt-2 text-3xl font-bold tracking-[-0.03em] sm:text-4xl">
-                    {activeTab === "posts"
-                      ? "部落格文章"
-                      : (currentPage?.label ?? "內容欄位")}
+                    {activeTab === "users"
+                      ? "登入權限管理"
+                      : activeTab === "posts"
+                        ? "部落格文章"
+                        : (currentPage?.label ?? "內容欄位")}
                   </h2>
                   <p className="mt-3 max-w-2xl text-sm leading-7 text-white/52">
-                    {activeTab === "posts"
-                      ? "管理文章草稿與公開狀態。新增文章會保持未公開，直到你明確勾選並發布。"
-                      : "編輯目前頁面的文字、長文、圖片與連結。變更只會留在本機草稿，按下儲存後才送到 CMS。"}
+                    {activeTab === "users"
+                      ? "管理 CMS 內容管理員帳戶與登入權限。"
+                      : activeTab === "posts"
+                        ? "管理文章草稿與公開狀態。新增文章會保持未公開，直到你明確勾選並發布。"
+                        : "編輯目前頁面的文字、長文、圖片與連結。變更只會留在本機草稿，按下儲存後才送到 CMS。"}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/40">
@@ -1687,5 +1675,15 @@ export default function AdminContent() {
         </dialog>
       )}
     </div>
+  );
+}
+
+export default function AdminContent() {
+  return (
+    <CmsAuthProvider>
+      <CmsAccessGate>
+        <CmsContentEditor />
+      </CmsAccessGate>
+    </CmsAuthProvider>
   );
 }

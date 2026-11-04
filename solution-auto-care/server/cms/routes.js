@@ -1,6 +1,9 @@
 // server/cms/routes.ts
 import express from "express";
 
+// server/cms/auth.ts
+import { parse as parseCookie } from "cookie";
+
 // server/cms/errors.ts
 var CmsHttpError = class extends Error {
   status;
@@ -43,78 +46,930 @@ var CmsStorageError = class extends CmsHttpError {
   }
 };
 
-// server/cms/auth.ts
-var CMS_AUTH_ME_URL = "https://solutionauth-zcgxwa4c.manus.space/api/trpc/auth.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%7D%7D";
-var REMOTE_AUTH_TIMEOUT_MS = 5e3;
+// server/cms/userStore.ts
+import { get as blobGet, put as blobPut } from "@vercel/blob";
+import {
+  createHash,
+  randomBytes,
+  randomUUID,
+  scrypt as callbackScrypt,
+  timingSafeEqual
+} from "node:crypto";
+function deriveScrypt(password, salt, keyLength, options) {
+  return new Promise((resolve, reject) => {
+    callbackScrypt(password, salt, keyLength, options, (error, derived) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(derived);
+    });
+  });
+}
+var CMS_AUTH_COOKIE = "solution_cms_session";
+var CMS_AUTH_DOCUMENT_PREFIX = "cms/auth";
+var CMS_AUTH_SESSION_TTL_MS = 8 * 60 * 60 * 1e3;
+var CMS_AUTH_MAX_USERS = 100;
+var CMS_AUTH_MAX_SESSIONS = 500;
+var CMS_AUTH_MAX_PASSWORD_LENGTH = 256;
+var CMS_AUTH_MIN_PASSWORD_LENGTH = 12;
+var CMS_AUTH_MAX_USERNAME_LENGTH = 32;
+var CMS_AUTH_MAX_NAME_LENGTH = 120;
+var CMS_AUTH_MAX_REVISION_LENGTH = 200;
+var LOGIN_FAILURE_LIMIT = 5;
+var LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1e3;
+var LOGIN_LOCKOUT_MS = 15 * 60 * 1e3;
+var BOOTSTRAP_ATTEMPT_LIMIT = 5;
+var BOOTSTRAP_ATTEMPT_WINDOW_MS = 15 * 60 * 1e3;
+var BOOTSTRAP_LIMIT_CAS_RETRIES = 5;
+var LOGIN_FAILURE_CAS_RETRIES = 5;
+var IP_THROTTLE_LIMIT = 20;
+var IP_THROTTLE_WINDOW_MS = 15 * 60 * 1e3;
+var IP_THROTTLE_MAX_ENTRIES = 4096;
+var SCRYPT_KEY_LENGTH = 32;
+var SCRYPT_N = 16384;
+var SCRYPT_R = 8;
+var SCRYPT_P = 1;
+var SCRYPT_MAXMEM = 32 * 1024 * 1024;
+var ipThrottle = /* @__PURE__ */ new Map();
+var defaultBlobClient = {
+  get: blobGet,
+  put: blobPut
+};
 function isRecord(value) {
   return typeof value === "object" && value !== null;
 }
-function unwrapTrpcUser(payload) {
-  const batchItem = Array.isArray(payload) ? payload[0] : payload;
-  if (!isRecord(batchItem)) return void 0;
-  const result = batchItem.result;
-  if (!isRecord(result)) return void 0;
-  const data = result.data;
-  if (isRecord(data) && Object.prototype.hasOwnProperty.call(data, "json")) {
-    return data.json;
+function isKnownEnvironment(value) {
+  return value === "production" || value === "preview" || value === "development";
+}
+function getCmsAuthPath(environment = process.env.VERCEL_ENV) {
+  const selected = isKnownEnvironment(environment) ? environment : "development";
+  return `${CMS_AUTH_DOCUMENT_PREFIX}/${selected}.json`;
+}
+function getCmsBootstrapLimitPath(authPath) {
+  return authPath.endsWith(".json") ? `${authPath.slice(0, -5)}-bootstrap-limit.json` : `${authPath}-bootstrap-limit.json`;
+}
+function isBlobConfiguredByEnvironment() {
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN
+  );
+}
+function isBlobConflict(error) {
+  if (!isRecord(error)) return false;
+  const name = typeof error.name === "string" ? error.name : "";
+  const code = typeof error.code === "string" ? error.code : "";
+  const message = typeof error.message === "string" ? error.message : "";
+  const status = error.status ?? error.statusCode;
+  return name.includes("Precondition") || code.includes("Precondition") || name.includes("AlreadyExists") || code.includes("AlreadyExists") || /already exists|overwrite/i.test(message) || status === 409 || status === 412;
+}
+async function readStream(stream) {
+  try {
+    return Buffer.from(await new Response(stream).arrayBuffer());
+  } catch {
+    throw new CmsStorageError();
   }
-  return data;
+}
+function validDateString(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+function parseOptionalName(value) {
+  if (value === void 0) return void 0;
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_NAME_LENGTH) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return value;
+}
+function normalizeCmsUsername(value) {
+  if (typeof value !== "string" || value.length < 3 || value.length > CMS_AUTH_MAX_USERNAME_LENGTH) {
+    throw new CmsValidationError("Username is invalid.");
+  }
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new CmsValidationError("Username is invalid.");
+  }
+  return value.toLowerCase();
+}
+function parseUsername(value) {
+  if (typeof value !== "string" || value.length < 3 || value.length > CMS_AUTH_MAX_USERNAME_LENGTH) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  if (!/^[a-z0-9_-]+$/.test(value)) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return value;
+}
+function validateCmsPassword(value, field2 = "Password") {
+  if (typeof value !== "string" || value.length < CMS_AUTH_MIN_PASSWORD_LENGTH || value.length > CMS_AUTH_MAX_PASSWORD_LENGTH) {
+    throw new CmsValidationError(
+      `${field2} must be between ${CMS_AUTH_MIN_PASSWORD_LENGTH} and ${CMS_AUTH_MAX_PASSWORD_LENGTH} characters.`
+    );
+  }
+  return value;
+}
+function validateBootstrapPassword(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_PASSWORD_LENGTH) {
+    return null;
+  }
+  return value;
+}
+function safeSecretEqual(left, right) {
+  const leftBytes = Buffer.from(left, "utf8");
+  const rightBytes = Buffer.from(right, "utf8");
+  if (leftBytes.length !== rightBytes.length) {
+    timingSafeEqual(leftBytes, leftBytes);
+    return false;
+  }
+  return timingSafeEqual(leftBytes, rightBytes);
+}
+function getBootstrapConfig() {
+  const password = validateBootstrapPassword(
+    process.env.CMS_BOOTSTRAP_PASSWORD
+  );
+  if (!password) return null;
+  const configuredUsername = process.env.CMS_BOOTSTRAP_USERNAME;
+  const username = configuredUsername ? (() => {
+    try {
+      return normalizeCmsUsername(configuredUsername);
+    } catch {
+      return null;
+    }
+  })() : null;
+  return username ? { username, password } : null;
+}
+function makePasswordRecord(hash, salt) {
+  return [
+    "scrypt",
+    SCRYPT_N,
+    SCRYPT_R,
+    SCRYPT_P,
+    salt.toString("base64url"),
+    hash.toString("base64url")
+  ].join("$");
+}
+function parsePasswordRecord(value) {
+  const parts = value.split("$");
+  if (parts.length !== 6 || parts[0] !== "scrypt") {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  const n = Number(parts[1]);
+  const r = Number(parts[2]);
+  const p = Number(parts[3]);
+  let salt;
+  let hash;
+  try {
+    salt = Buffer.from(parts[4], "base64url");
+    hash = Buffer.from(parts[5], "base64url");
+  } catch {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  if (n !== SCRYPT_N || r !== SCRYPT_R || p !== SCRYPT_P || salt.length < 16 || hash.length !== SCRYPT_KEY_LENGTH) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return { n, r, p, salt, hash };
+}
+async function hashCmsPassword(password) {
+  const salt = randomBytes(16);
+  const hash = await deriveScrypt(password, salt, SCRYPT_KEY_LENGTH, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: SCRYPT_MAXMEM
+  });
+  return makePasswordRecord(hash, salt);
+}
+async function verifyCmsPassword(password, record) {
+  const parsed = parsePasswordRecord(record);
+  const actual = await deriveScrypt(password, parsed.salt, parsed.hash.length, {
+    N: parsed.n,
+    r: parsed.r,
+    p: parsed.p,
+    maxmem: SCRYPT_MAXMEM
+  });
+  return actual.length === parsed.hash.length && timingSafeEqual(actual, parsed.hash);
+}
+function hashCmsSessionToken(token) {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+function cloneDocument(document) {
+  return JSON.parse(JSON.stringify(document));
+}
+function parseAuthDocument(value) {
+  if (!isRecord(value) || value.schemaVersion !== 1 || typeof value.revision !== "string") {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  if (value.revision.length === 0 || value.revision.length > CMS_AUTH_MAX_REVISION_LENGTH || !Array.isArray(value.accounts) || !Array.isArray(value.sessions) || value.accounts.length > CMS_AUTH_MAX_USERS || value.sessions.length > CMS_AUTH_MAX_SESSIONS) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  const accounts = value.accounts.map((item) => {
+    if (!isRecord(item))
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    const role = item.role;
+    const id = item.id;
+    const createdAt = item.createdAt;
+    const failedWindowStartedAt = item.failedWindowStartedAt;
+    const lockedUntil = item.lockedUntil;
+    const sessionVersion = typeof item.sessionVersion === "number" ? item.sessionVersion : -1;
+    const failedAttempts = typeof item.failedAttempts === "number" ? item.failedAttempts : -1;
+    if (typeof id !== "string" || id.length < 1 || id.length > 100 || role !== "owner" && role !== "editor" || !validDateString(createdAt) || typeof item.enabled !== "boolean" || typeof item.removed !== "boolean" || typeof item.passwordHash !== "string" || typeof item.mustChangePassword !== "boolean" || !Number.isInteger(sessionVersion) || sessionVersion < 0 || !Number.isInteger(failedAttempts) || failedAttempts < 0 || failedAttempts > LOGIN_FAILURE_LIMIT || failedWindowStartedAt !== null && !validDateString(failedWindowStartedAt) || lockedUntil !== null && !validDateString(lockedUntil)) {
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    }
+    const username = parseUsername(item.username);
+    const name = parseOptionalName(item.name);
+    parsePasswordRecord(item.passwordHash);
+    return {
+      id,
+      username,
+      ...name === void 0 ? {} : { name },
+      role,
+      enabled: item.enabled,
+      removed: item.removed,
+      passwordHash: item.passwordHash,
+      mustChangePassword: item.mustChangePassword,
+      sessionVersion,
+      createdAt,
+      failedAttempts,
+      failedWindowStartedAt,
+      lockedUntil
+    };
+  });
+  if (accounts.filter((account) => account.role === "owner").length !== 1) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  const usernames = /* @__PURE__ */ new Set();
+  const ids = /* @__PURE__ */ new Set();
+  for (const account of accounts) {
+    if (usernames.has(account.username) || ids.has(account.id)) {
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    }
+    usernames.add(account.username);
+    ids.add(account.id);
+  }
+  const sessions = value.sessions.map((item) => {
+    if (!isRecord(item))
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    const sessionVersion = typeof item.sessionVersion === "number" ? item.sessionVersion : -1;
+    if (typeof item.tokenHash !== "string" || !/^[a-f0-9]{64}$/.test(item.tokenHash) || typeof item.accountId !== "string" || !ids.has(item.accountId) || !Number.isInteger(sessionVersion) || sessionVersion < 0 || !validDateString(item.createdAt) || !validDateString(item.expiresAt)) {
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    }
+    return {
+      tokenHash: item.tokenHash,
+      accountId: item.accountId,
+      sessionVersion,
+      createdAt: item.createdAt,
+      expiresAt: item.expiresAt
+    };
+  });
+  return {
+    schemaVersion: 1,
+    revision: value.revision,
+    accounts,
+    sessions
+  };
+}
+function parseBootstrapLimitDocument(value) {
+  if (!isRecord(value) || value.schemaVersion !== 1) {
+    throw new CmsStorageError("CMS bootstrap limiter is invalid.");
+  }
+  const windowStartedAt = value.windowStartedAt;
+  const attempts = value.attempts;
+  if (typeof windowStartedAt !== "string" || !validDateString(windowStartedAt) || typeof attempts !== "number" || !Number.isInteger(attempts) || attempts < 0 || attempts > BOOTSTRAP_ATTEMPT_LIMIT) {
+    throw new CmsStorageError("CMS bootstrap limiter is invalid.");
+  }
+  return { schemaVersion: 1, windowStartedAt, attempts };
+}
+function createInitialDocument(account) {
+  return {
+    schemaVersion: 1,
+    revision: randomUUID(),
+    accounts: [account],
+    sessions: []
+  };
+}
+function toPrincipal(account) {
+  return {
+    role: "admin",
+    cmsRole: account.role,
+    id: account.id,
+    username: account.username,
+    ...account.name === void 0 ? {} : { name: account.name },
+    mustChangePassword: account.mustChangePassword
+  };
+}
+function toUserSummary(account) {
+  return {
+    id: account.id,
+    username: account.username,
+    ...account.name === void 0 ? {} : { name: account.name },
+    role: account.role,
+    enabled: account.enabled,
+    mustChangePassword: account.mustChangePassword,
+    createdAt: account.createdAt
+  };
+}
+function genericLoginError() {
+  return new CmsAuthError(401, "Invalid username or password.");
+}
+function genericSessionError() {
+  return new CmsAuthError(401, "Authentication required.");
+}
+function throttleKey(ip) {
+  return ip && ip.length <= 200 ? ip : "unknown";
+}
+function pruneIpThrottle(now) {
+  ipThrottle.forEach((state, key) => {
+    if (now - state.windowStartedAt > IP_THROTTLE_WINDOW_MS && state.blockedUntil <= now) {
+      ipThrottle.delete(key);
+    }
+  });
+  while (ipThrottle.size > IP_THROTTLE_MAX_ENTRIES) {
+    const oldest = ipThrottle.keys().next().value;
+    if (typeof oldest !== "string") break;
+    ipThrottle.delete(oldest);
+  }
+}
+function isIpThrottled(ip, now) {
+  pruneIpThrottle(now);
+  const state = ipThrottle.get(throttleKey(ip));
+  if (!state) return false;
+  if (state.blockedUntil > now) return true;
+  if (now - state.windowStartedAt >= IP_THROTTLE_WINDOW_MS) {
+    ipThrottle.delete(throttleKey(ip));
+    return false;
+  }
+  return state.failures >= IP_THROTTLE_LIMIT;
+}
+function recordIpFailure(ip, now) {
+  pruneIpThrottle(now);
+  const key = throttleKey(ip);
+  const previous = ipThrottle.get(key);
+  const state = !previous || now - previous.windowStartedAt >= IP_THROTTLE_WINDOW_MS ? { windowStartedAt: now, failures: 0, blockedUntil: 0 } : previous;
+  state.failures += 1;
+  if (state.failures >= IP_THROTTLE_LIMIT)
+    state.blockedUntil = now + IP_THROTTLE_WINDOW_MS;
+  ipThrottle.delete(key);
+  ipThrottle.set(key, state);
+}
+function clearIpFailures(ip) {
+  ipThrottle.delete(throttleKey(ip));
+}
+function accountIsLocked(account, now) {
+  return Boolean(account.lockedUntil && Date.parse(account.lockedUntil) > now);
+}
+function resetAccountFailures(account) {
+  account.failedAttempts = 0;
+  account.failedWindowStartedAt = null;
+  account.lockedUntil = null;
+}
+function recordAccountFailure(account, now) {
+  const previousWindow = account.failedWindowStartedAt ? Date.parse(account.failedWindowStartedAt) : NaN;
+  if (!Number.isFinite(previousWindow) || now - previousWindow >= LOGIN_FAILURE_WINDOW_MS) {
+    account.failedAttempts = 0;
+    account.failedWindowStartedAt = new Date(now).toISOString();
+  }
+  account.failedAttempts = Math.min(
+    LOGIN_FAILURE_LIMIT,
+    account.failedAttempts + 1
+  );
+  if (account.failedAttempts >= LOGIN_FAILURE_LIMIT) {
+    account.lockedUntil = new Date(now + LOGIN_LOCKOUT_MS).toISOString();
+  }
+}
+function cleanupSessions(document, now) {
+  document.sessions = document.sessions.filter(
+    (session) => Date.parse(session.expiresAt) > now
+  );
+}
+function makeAccount(input) {
+  return {
+    id: randomUUID(),
+    username: input.username,
+    ...input.name === void 0 ? {} : { name: input.name },
+    role: input.role,
+    enabled: true,
+    removed: false,
+    passwordHash: input.passwordHash,
+    mustChangePassword: input.mustChangePassword,
+    sessionVersion: 0,
+    createdAt: new Date(input.now).toISOString(),
+    failedAttempts: 0,
+    failedWindowStartedAt: null,
+    lockedUntil: null
+  };
+}
+async function readSnapshot(client, pathname) {
+  let result;
+  try {
+    result = await client.get(pathname, { access: "private", useCache: false });
+  } catch {
+    throw new CmsStorageError();
+  }
+  if (!result || result.statusCode === 404) {
+    return { document: null, etag: null, exists: false };
+  }
+  if (result.statusCode !== 200 || !result.stream) throw new CmsStorageError();
+  const raw = await readStream(result.stream);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.toString("utf8"));
+  } catch {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return {
+    document: parseAuthDocument(parsed),
+    etag: result.blob.etag,
+    exists: true
+  };
+}
+async function readBootstrapLimitSnapshot(client, pathname) {
+  let result;
+  try {
+    result = await client.get(pathname, { access: "private", useCache: false });
+  } catch {
+    throw new CmsStorageError();
+  }
+  if (!result || result.statusCode === 404) {
+    return { document: null, etag: null, exists: false };
+  }
+  if (result.statusCode !== 200 || !result.stream) throw new CmsStorageError();
+  const raw = await readStream(result.stream);
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.toString("utf8"));
+  } catch {
+    throw new CmsStorageError("CMS bootstrap limiter is invalid.");
+  }
+  return {
+    document: parseBootstrapLimitDocument(parsed),
+    etag: result.blob.etag,
+    exists: true
+  };
+}
+async function writeBootstrapLimitSnapshot(client, pathname, snapshot, document) {
+  const options = {
+    access: "private",
+    allowOverwrite: snapshot.exists,
+    contentType: "application/json; charset=utf-8"
+  };
+  if (snapshot.exists) {
+    if (!snapshot.etag) throw new CmsConflictError();
+    options.ifMatch = snapshot.etag;
+  }
+  try {
+    await client.put(pathname, JSON.stringify(document), options);
+  } catch (error) {
+    if (isBlobConflict(error)) throw new CmsConflictError();
+    throw new CmsStorageError();
+  }
+}
+async function reserveBootstrapAttempt(client, pathname, now) {
+  for (let attempt = 0; attempt < BOOTSTRAP_LIMIT_CAS_RETRIES; attempt += 1) {
+    const snapshot = await readBootstrapLimitSnapshot(client, pathname);
+    const current = snapshot.document;
+    const startedAt = current ? Date.parse(current.windowStartedAt) : NaN;
+    const expired = !current || now - startedAt >= BOOTSTRAP_ATTEMPT_WINDOW_MS;
+    if (!expired && current.attempts >= BOOTSTRAP_ATTEMPT_LIMIT) {
+      return false;
+    }
+    const document = expired ? {
+      schemaVersion: 1,
+      windowStartedAt: new Date(now).toISOString(),
+      attempts: 1
+    } : {
+      schemaVersion: 1,
+      windowStartedAt: current.windowStartedAt,
+      attempts: current.attempts + 1
+    };
+    try {
+      await writeBootstrapLimitSnapshot(client, pathname, snapshot, document);
+      return true;
+    } catch (error) {
+      if (!(error instanceof CmsConflictError)) throw error;
+      if (attempt === BOOTSTRAP_LIMIT_CAS_RETRIES - 1) throw error;
+    }
+  }
+  throw new CmsConflictError();
+}
+async function writeSnapshot(client, pathname, snapshot, document) {
+  const options = {
+    access: "private",
+    allowOverwrite: snapshot.exists,
+    contentType: "application/json; charset=utf-8"
+  };
+  if (snapshot.exists) {
+    if (!snapshot.etag) throw new CmsConflictError();
+    options.ifMatch = snapshot.etag;
+  }
+  try {
+    await client.put(pathname, JSON.stringify(document), options);
+  } catch (error) {
+    if (isBlobConflict(error)) throw new CmsConflictError();
+    throw new CmsStorageError();
+  }
+}
+function assertRevision(document, revision) {
+  if (document.revision !== revision) throw new CmsConflictError();
+}
+function validateRevision(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_REVISION_LENGTH) {
+    throw new CmsValidationError("An authentication revision is required.");
+  }
+  return value;
+}
+function validateName(value) {
+  if (value === void 0 || value === null) return void 0;
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_NAME_LENGTH) {
+    throw new CmsValidationError("Name is invalid.");
+  }
+  return value;
+}
+function findAccount(document, username) {
+  return document.accounts.find((account) => account.username === username);
+}
+function findAccountById(document, id) {
+  return document.accounts.find((account) => account.id === id);
+}
+function sessionAccount(document, token, now) {
+  const tokenHash = hashCmsSessionToken(token);
+  const session = document.sessions.find((item) => item.tokenHash === tokenHash);
+  if (!session || Date.parse(session.expiresAt) <= now) return null;
+  const account = findAccountById(document, session.accountId);
+  if (!account || !account.enabled || account.removed || account.sessionVersion !== session.sessionVersion) {
+    return null;
+  }
+  return { account, session };
+}
+function createSession(document, account, now) {
+  cleanupSessions(document, now);
+  if (document.sessions.length >= CMS_AUTH_MAX_SESSIONS) {
+    throw new CmsStorageError("Too many active CMS sessions.");
+  }
+  const token = randomBytes(32).toString("base64url");
+  document.sessions.push({
+    tokenHash: hashCmsSessionToken(token),
+    accountId: account.id,
+    sessionVersion: account.sessionVersion,
+    createdAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + CMS_AUTH_SESSION_TTL_MS).toISOString()
+  });
+  return token;
+}
+async function recordFailedLogin(client, pathname, username, now) {
+  for (let attempt = 0; attempt < LOGIN_FAILURE_CAS_RETRIES; attempt += 1) {
+    const snapshot = await readSnapshot(client, pathname);
+    if (!snapshot.document) return;
+    const account = findAccount(snapshot.document, username);
+    if (!account) return;
+    const document = cloneDocument(snapshot.document);
+    const updated = findAccount(document, username);
+    if (!updated) return;
+    recordAccountFailure(updated, now);
+    document.revision = randomUUID();
+    try {
+      await writeSnapshot(client, pathname, snapshot, document);
+      return;
+    } catch (error) {
+      if (!(error instanceof CmsConflictError)) throw error;
+      if (attempt === LOGIN_FAILURE_CAS_RETRIES - 1) throw error;
+    }
+  }
+  throw new CmsConflictError();
+}
+function createCmsUserStore(client = defaultBlobClient, options = {}) {
+  const configured = options.configured ?? isBlobConfiguredByEnvironment();
+  const authPath = getCmsAuthPath(
+    options.environment ?? process.env.VERCEL_ENV
+  );
+  const bootstrapLimitPath = getCmsBootstrapLimitPath(authPath);
+  const store = {
+    configured,
+    authPath,
+    readSnapshot: () => readSnapshot(client, authPath),
+    async login(usernameInput, password, ip) {
+      const username = normalizeCmsUsername(usernameInput);
+      if (typeof password !== "string" || password.length === 0 || password.length > CMS_AUTH_MAX_PASSWORD_LENGTH) {
+        throw genericLoginError();
+      }
+      const now = Date.now();
+      if (isIpThrottled(ip, now)) throw genericLoginError();
+      let snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) {
+        const reserved = await reserveBootstrapAttempt(
+          client,
+          bootstrapLimitPath,
+          now
+        );
+        if (!reserved) throw genericLoginError();
+        const bootstrap = getBootstrapConfig();
+        if (!bootstrap || bootstrap.username !== username || !safeSecretEqual(password, bootstrap.password)) {
+          recordIpFailure(ip, now);
+          throw genericLoginError();
+        }
+        const owner = makeAccount({
+          username: bootstrap.username,
+          passwordHash: await hashCmsPassword(bootstrap.password),
+          role: "owner",
+          mustChangePassword: true,
+          now
+        });
+        const seeded = createInitialDocument(owner);
+        try {
+          await writeSnapshot(client, authPath, snapshot, seeded);
+          snapshot = { document: seeded, etag: null, exists: true };
+        } catch (error) {
+          if (!(error instanceof CmsConflictError)) throw error;
+          snapshot = await readSnapshot(client, authPath);
+        }
+      }
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (!snapshot.document) {
+          recordIpFailure(ip, now);
+          throw genericLoginError();
+        }
+        const account = findAccount(snapshot.document, username);
+        if (!account || !account.enabled || account.removed || accountIsLocked(account, now)) {
+          if (!account) await hashCmsPassword(password);
+          recordIpFailure(ip, now);
+          throw genericLoginError();
+        }
+        let valid = false;
+        try {
+          valid = await verifyCmsPassword(password, account.passwordHash);
+        } catch {
+          throw new CmsStorageError("CMS authentication document is invalid.");
+        }
+        if (!valid) {
+          recordIpFailure(ip, now);
+          await recordFailedLogin(client, authPath, username, now);
+          throw genericLoginError();
+        }
+        const document = cloneDocument(snapshot.document);
+        const current = findAccount(document, username);
+        if (!current || !current.enabled || current.removed || accountIsLocked(current, now)) {
+          recordIpFailure(ip, now);
+          throw genericLoginError();
+        }
+        resetAccountFailures(current);
+        const token = createSession(document, current, now);
+        document.revision = randomUUID();
+        try {
+          await writeSnapshot(client, authPath, snapshot, document);
+          clearIpFailures(ip);
+          return { principal: toPrincipal(current), sessionToken: token };
+        } catch (error) {
+          if (!(error instanceof CmsConflictError) || attempt === 1)
+            throw error;
+          snapshot = await readSnapshot(client, authPath);
+        }
+      }
+      throw new CmsConflictError();
+    },
+    async authenticateSession(token) {
+      if (typeof token !== "string" || token.length < 20 || token.length > 200) {
+        throw genericSessionError();
+      }
+      const snapshot = await readSnapshot(client, authPath);
+      const current = snapshot.document && sessionAccount(snapshot.document, token, Date.now());
+      if (!current) throw genericSessionError();
+      return toPrincipal(current.account);
+    },
+    async logout(token) {
+      if (typeof token !== "string" || token.length < 20 || token.length > 200)
+        return;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const snapshot = await readSnapshot(client, authPath);
+        if (!snapshot.document) return;
+        const tokenHash = hashCmsSessionToken(token);
+        if (!snapshot.document.sessions.some(
+          (session) => session.tokenHash === tokenHash
+        ))
+          return;
+        const document = cloneDocument(snapshot.document);
+        document.sessions = document.sessions.filter(
+          (session) => session.tokenHash !== tokenHash
+        );
+        cleanupSessions(document, Date.now());
+        document.revision = randomUUID();
+        try {
+          await writeSnapshot(client, authPath, snapshot, document);
+          return;
+        } catch (error) {
+          if (!(error instanceof CmsConflictError) || attempt === 1)
+            throw error;
+        }
+      }
+    },
+    async changePassword(token, currentPassword, newPassword) {
+      if (typeof token !== "string" || token.length < 20 || token.length > 200) {
+        throw genericSessionError();
+      }
+      if (typeof currentPassword !== "string" || currentPassword.length === 0 || currentPassword.length > CMS_AUTH_MAX_PASSWORD_LENGTH) {
+        throw new CmsValidationError("Current password is required.");
+      }
+      validateCmsPassword(newPassword, "New password");
+      const snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) throw genericSessionError();
+      const current = sessionAccount(snapshot.document, token, Date.now());
+      if (!current) throw genericSessionError();
+      let currentValid = false;
+      try {
+        currentValid = await verifyCmsPassword(
+          currentPassword,
+          current.account.passwordHash
+        );
+      } catch {
+        throw new CmsStorageError("CMS authentication document is invalid.");
+      }
+      if (!currentValid)
+        throw new CmsAuthError(401, "Current password is incorrect.");
+      if (currentPassword === newPassword) {
+        throw new CmsValidationError(
+          "New password must differ from the current password."
+        );
+      }
+      const now = Date.now();
+      const document = cloneDocument(snapshot.document);
+      const account = findAccountById(document, current.account.id);
+      if (!account || !account.enabled || account.removed)
+        throw genericSessionError();
+      account.passwordHash = await hashCmsPassword(newPassword);
+      account.mustChangePassword = false;
+      account.sessionVersion += 1;
+      resetAccountFailures(account);
+      document.sessions = document.sessions.filter(
+        (session) => session.accountId !== account.id
+      );
+      const newToken = createSession(document, account, now);
+      document.revision = randomUUID();
+      await writeSnapshot(client, authPath, snapshot, document);
+      return { principal: toPrincipal(account), sessionToken: newToken };
+    },
+    async listUsers() {
+      const snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) throw new CmsStorageError();
+      return {
+        users: snapshot.document.accounts.map(toUserSummary),
+        revision: snapshot.document.revision
+      };
+    },
+    async createEditor(input) {
+      const username = normalizeCmsUsername(input.username);
+      const password = validateCmsPassword(input.password, "Password");
+      const name = validateName(input.name);
+      const revision = validateRevision(input.revision);
+      const passwordHash = await hashCmsPassword(password);
+      const snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) throw new CmsStorageError();
+      assertRevision(snapshot.document, revision);
+      if (snapshot.document.accounts.length >= CMS_AUTH_MAX_USERS) {
+        throw new CmsValidationError("The CMS user limit has been reached.");
+      }
+      if (findAccount(snapshot.document, username)) {
+        throw new CmsConflictError("That username is already reserved.");
+      }
+      const document = cloneDocument(snapshot.document);
+      document.accounts.push(
+        makeAccount({
+          username,
+          passwordHash,
+          role: "editor",
+          ...name === void 0 ? {} : { name },
+          mustChangePassword: true,
+          now: Date.now()
+        })
+      );
+      document.revision = randomUUID();
+      await writeSnapshot(client, authPath, snapshot, document);
+      return {
+        users: document.accounts.map(toUserSummary),
+        revision: document.revision
+      };
+    },
+    async setEditorEnabled(input) {
+      const id = typeof input.id === "string" && input.id.length <= 100 ? input.id : "";
+      if (!id) throw new CmsValidationError("User id is required.");
+      if (typeof input.enabled !== "boolean")
+        throw new CmsValidationError("Enabled must be boolean.");
+      const revision = validateRevision(input.revision);
+      const snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) throw new CmsStorageError();
+      assertRevision(snapshot.document, revision);
+      const document = cloneDocument(snapshot.document);
+      const account = findAccountById(document, id);
+      if (!account) throw new CmsValidationError("User not found.");
+      if (account.role === "owner")
+        throw new CmsAuthError(403, "The owner account cannot be disabled.");
+      if (account.enabled !== input.enabled || input.enabled && account.removed) {
+        account.enabled = input.enabled;
+        account.removed = input.enabled ? false : account.removed;
+        account.sessionVersion += 1;
+        if (!input.enabled) {
+          document.sessions = document.sessions.filter(
+            (session) => session.accountId !== account.id
+          );
+        }
+      }
+      document.revision = randomUUID();
+      await writeSnapshot(client, authPath, snapshot, document);
+      return {
+        users: document.accounts.map(toUserSummary),
+        revision: document.revision
+      };
+    },
+    async removeEditor(input) {
+      const id = typeof input.id === "string" && input.id.length <= 100 ? input.id : "";
+      if (!id) throw new CmsValidationError("User id is required.");
+      const revision = validateRevision(input.revision);
+      const snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) throw new CmsStorageError();
+      assertRevision(snapshot.document, revision);
+      const document = cloneDocument(snapshot.document);
+      const account = findAccountById(document, id);
+      if (!account) throw new CmsValidationError("User not found.");
+      if (account.role === "owner")
+        throw new CmsAuthError(403, "The owner account cannot be removed.");
+      account.enabled = false;
+      account.removed = true;
+      account.sessionVersion += 1;
+      document.sessions = document.sessions.filter(
+        (session) => session.accountId !== account.id
+      );
+      document.revision = randomUUID();
+      await writeSnapshot(client, authPath, snapshot, document);
+      return {
+        users: document.accounts.map(toUserSummary),
+        revision: document.revision
+      };
+    }
+  };
+  return store;
+}
+
+// server/cms/auth.ts
+var CMS_SESSION_COOKIE = CMS_AUTH_COOKIE;
+function asCmsAdminUser(principal) {
+  return principal;
 }
 function getHeader(req, name) {
   const value = req.headers[name.toLowerCase()];
   if (Array.isArray(value)) return value[0];
   return typeof value === "string" ? value : void 0;
 }
-function buildForwardHeaders(req) {
-  const headers = new Headers({ Accept: "application/json" });
-  const cookie = getHeader(req, "cookie");
-  const manusCookie = getHeader(req, "x-manus-cookie");
-  const authorization = getHeader(req, "authorization");
-  if (cookie) headers.set("Cookie", cookie);
-  if (manusCookie) {
-    headers.set("x-manus-cookie", manusCookie);
-    if (!cookie && manusCookie.includes("=")) {
-      headers.set("Cookie", manusCookie);
-    }
-  }
-  if (authorization) headers.set("Authorization", authorization);
-  return headers;
+function getCmsSessionToken(req) {
+  const header = getHeader(req, "cookie");
+  if (!header) return null;
+  const cookies = parseCookie(header);
+  const token = cookies[CMS_SESSION_COOKIE];
+  return token && token.length <= 200 ? token : null;
 }
-async function authenticateCmsAdmin(req, fetchImpl = fetch) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REMOTE_AUTH_TIMEOUT_MS);
-  let response;
+function cookieSecurityForOrigin(req) {
+  const origin = getHeader(req, "origin");
+  if (!origin) {
+    throw new CmsAuthError(403, "CMS write protection failed.");
+  }
+  let parsed;
   try {
-    response = await fetchImpl(CMS_AUTH_ME_URL, {
-      method: "GET",
-      headers: buildForwardHeaders(req),
-      signal: controller.signal
-    });
+    parsed = new URL(origin);
   } catch {
-    throw new CmsAuthError(503, "Authentication service unavailable.");
-  } finally {
-    clearTimeout(timeout);
+    throw new CmsAuthError(403, "CMS write protection failed.");
   }
-  if (response.status === 401 || response.status === 403) {
-    throw new CmsAuthError(401, "Authentication required.");
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new CmsAuthError(403, "CMS write protection failed.");
   }
-  if (!response.ok) {
-    throw new CmsAuthError(503, "Authentication service unavailable.");
-  }
-  let payload;
+  return parsed.protocol === "https:" ? { secure: true, sameSite: "none" } : { secure: false, sameSite: "lax" };
+}
+function serializeCmsCookie(token, security, maxAge) {
+  return [
+    `${CMS_SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    `Max-Age=${maxAge}`,
+    "Path=/",
+    "HttpOnly",
+    `SameSite=${security.sameSite === "none" ? "None" : "Lax"}`,
+    ...security.secure ? ["Secure"] : []
+  ].join("; ");
+}
+function setCmsSessionCookie(res, req, token) {
+  const security = cookieSecurityForOrigin(req);
+  res.append(
+    "Set-Cookie",
+    serializeCmsCookie(
+      token,
+      security,
+      Math.floor(CMS_AUTH_SESSION_TTL_MS / 1e3)
+    )
+  );
+}
+function clearCmsSessionCookie(res, req) {
+  const security = cookieSecurityForOrigin(req);
+  res.append("Set-Cookie", serializeCmsCookie("", security, 0));
+}
+async function authenticateCmsAdmin(req, userStore = createCmsUserStore()) {
+  const token = getCmsSessionToken(req);
+  if (!token) throw new CmsAuthError(401, "Authentication required.");
   try {
-    payload = await response.json();
-  } catch {
+    return asCmsAdminUser(await userStore.authenticateSession(token));
+  } catch (error) {
+    if (error instanceof CmsAuthError) throw error;
     throw new CmsAuthError(503, "Authentication service unavailable.");
   }
-  const user = unwrapTrpcUser(payload);
-  if (!isRecord(user)) {
-    throw new CmsAuthError(401, "Authentication required.");
-  }
-  if (user.role !== "admin") {
-    throw new CmsAuthError(403, "Admin access required.");
-  }
-  return user;
 }
 
 // server/cms/media.ts
@@ -210,7 +1065,7 @@ function createMediaUrl(pathname) {
 }
 
 // server/cms/store.ts
-import { get as blobGet, put as blobPut } from "@vercel/blob";
+import { get as blobGet2, put as blobPut2 } from "@vercel/blob";
 
 // shared/siteContent.ts
 var field = (key, label, page, type = "text") => ({ key, label, page, type });
@@ -942,9 +1797,9 @@ function validateSiteContent(value) {
 // server/cms/store.ts
 var CMS_DOCUMENT_PATH = "cms/site.json";
 var INITIAL_REVISION = "0";
-var defaultBlobClient = {
-  get: blobGet,
-  put: blobPut
+var defaultBlobClient2 = {
+  get: blobGet2,
+  put: blobPut2
 };
 function isRecord3(value) {
   return typeof value === "object" && value !== null;
@@ -988,7 +1843,7 @@ function parseCmsDocument(value) {
     throw new CmsStorageError("CMS document is invalid.");
   }
 }
-function isBlobConflict(error) {
+function isBlobConflict2(error) {
   if (!isRecord3(error)) return false;
   const name = typeof error.name === "string" ? error.name : "";
   const code = typeof error.code === "string" ? error.code : "";
@@ -996,20 +1851,20 @@ function isBlobConflict(error) {
   const status = error.status ?? error.statusCode;
   return name.includes("Precondition") || code.includes("Precondition") || name.includes("AlreadyExists") || code.includes("AlreadyExists") || /already exists|overwrite/i.test(message) || status === 409 || status === 412;
 }
-async function readStream(stream) {
+async function readStream2(stream) {
   try {
     return Buffer.from(await new Response(stream).arrayBuffer());
   } catch {
     throw new CmsStorageError("CMS storage is unavailable.");
   }
 }
-function isBlobConfiguredByEnvironment() {
+function isBlobConfiguredByEnvironment2() {
   return Boolean(
     process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID && process.env.VERCEL_OIDC_TOKEN
   );
 }
-function createCmsStore(client = defaultBlobClient, options = {}) {
-  const configured = options.configured ?? isBlobConfiguredByEnvironment();
+function createCmsStore(client = defaultBlobClient2, options = {}) {
+  const configured = options.configured ?? isBlobConfiguredByEnvironment2();
   return {
     configured,
     async readSnapshot() {
@@ -1032,7 +1887,7 @@ function createCmsStore(client = defaultBlobClient, options = {}) {
       if (result.statusCode !== 200 || !result.stream) {
         throw new CmsStorageError("CMS storage is unavailable.");
       }
-      const raw = await readStream(result.stream);
+      const raw = await readStream2(result.stream);
       let parsed;
       try {
         parsed = JSON.parse(raw.toString("utf8"));
@@ -1058,7 +1913,7 @@ function createCmsStore(client = defaultBlobClient, options = {}) {
       try {
         await client.put(CMS_DOCUMENT_PATH, JSON.stringify(document), options2);
       } catch (error) {
-        if (isBlobConflict(error)) throw new CmsConflictError();
+        if (isBlobConflict2(error)) throw new CmsConflictError();
         throw new CmsStorageError("CMS storage is unavailable.");
       }
     },
@@ -1070,7 +1925,7 @@ function createCmsStore(client = defaultBlobClient, options = {}) {
           contentType: "image/webp"
         });
       } catch (error) {
-        if (isBlobConflict(error)) throw new CmsConflictError();
+        if (isBlobConflict2(error)) throw new CmsConflictError();
         throw new CmsStorageError("CMS storage is unavailable.");
       }
     },
@@ -1089,7 +1944,7 @@ function createCmsStore(client = defaultBlobClient, options = {}) {
         throw new CmsStorageError("CMS storage is unavailable.");
       }
       return {
-        body: await readStream(result.stream),
+        body: await readStream2(result.stream),
         contentType: result.blob.contentType
       };
     }
@@ -1163,15 +2018,6 @@ function assertExpectedRevision(snapshot, revision) {
   const currentRevision = snapshot.exists ? snapshot.document.revision : INITIAL_REVISION;
   if (revision !== currentRevision) throw new CmsConflictError();
 }
-function assertTrustedWrite(req) {
-  if (req.get(CMS_WRITE_HEADER) !== "1") {
-    throw new CmsHttpError(403, "CMS write protection failed.");
-  }
-  const origin = req.get("Origin");
-  if (!origin || !isTrustedCmsOrigin(origin)) {
-    throw new CmsHttpError(403, "CMS write protection failed.");
-  }
-}
 function isTrustedCmsOrigin(origin) {
   let parsed;
   try {
@@ -1191,7 +2037,17 @@ function isTrustedCmsOrigin(origin) {
   if (isTrustedVercelPreview) return true;
   return parsed.protocol === "https:" && parsed.port === "" && /^(?:[a-z0-9-]+\.)+manus\.computer$/i.test(parsed.hostname);
 }
+function assertTrustedWrite(req) {
+  if (req.get(CMS_WRITE_HEADER) !== "1") {
+    throw new CmsHttpError(403, "CMS write protection failed.");
+  }
+  const origin = req.get("Origin");
+  if (!origin || !isTrustedCmsOrigin(origin)) {
+    throw new CmsHttpError(403, "CMS write protection failed.");
+  }
+}
 function sendError(res, error) {
+  res.setHeader("Cache-Control", "no-store");
   if (error instanceof CmsHttpError) {
     res.status(error.status).json({ error: error.safeMessage });
     return;
@@ -1206,9 +2062,67 @@ async function authenticate(req, authenticateAdmin) {
     throw new CmsAuthError(503, "Authentication service unavailable.");
   }
 }
+function cmsRole(user) {
+  return user.cmsRole === "editor" ? "editor" : "owner";
+}
+function assertContentAccess(user) {
+  if (user.mustChangePassword === true) {
+    throw new CmsAuthError(403, "Password change required.");
+  }
+}
+function assertOwner(user) {
+  if (cmsRole(user) !== "owner") {
+    throw new CmsAuthError(403, "Owner access required.");
+  }
+}
+function publicCmsUser(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    ...user.name === void 0 ? {} : { name: user.name },
+    role: cmsRole(user),
+    mustChangePassword: user.mustChangePassword === true
+  };
+}
+function bodyRecord(body) {
+  if (!isRecord4(body))
+    throw new CmsValidationError("Request body is required.");
+  return body;
+}
+function requiredString(body, field2) {
+  const value = body[field2];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new CmsValidationError(`${field2} is required.`);
+  }
+  return value;
+}
+function optionalName(body) {
+  if (body.name === void 0 || body.name === null) return void 0;
+  if (typeof body.name !== "string")
+    throw new CmsValidationError("Name is invalid.");
+  return body.name;
+}
+function requestIp(req) {
+  if (process.env.VERCEL === "1") {
+    const vercelForwarded = req.get("X-Vercel-Forwarded-For");
+    const trustedIp = vercelForwarded?.split(",", 1)[0]?.trim();
+    if (trustedIp) return trustedIp;
+  }
+  return req.socket.remoteAddress || req.ip || void 0;
+}
+var NO_STORE_ROUTES = /* @__PURE__ */ new Set([
+  "status",
+  "session",
+  "login",
+  "logout",
+  "password",
+  "users",
+  "admin"
+]);
 function registerCmsRoutes(app, options = {}) {
   const store = options.store ?? createCmsStore();
-  const authenticateAdmin = options.authenticateAdmin ?? authenticateCmsAdmin;
+  const userStore = options.userStore ?? createCmsUserStore();
+  const authenticateAdmin = options.authenticateAdmin ?? ((req) => authenticateCmsAdmin(req, userStore));
   const now = options.now ?? (() => /* @__PURE__ */ new Date());
   const handle = async (req, res) => {
     const route = getCmsPath(req);
@@ -1216,6 +2130,7 @@ function registerCmsRoutes(app, options = {}) {
       res.status(404).json({ error: "Not found" });
       return;
     }
+    if (NO_STORE_ROUTES.has(route)) res.setHeader("Cache-Control", "no-store");
     if (req.method === "OPTIONS") {
       res.status(204).end();
       return;
@@ -1253,8 +2168,107 @@ function registerCmsRoutes(app, options = {}) {
         res.status(200).end(media.body);
         return;
       }
+      if (req.method === "GET" && route === "session") {
+        const user = await authenticate(req, authenticateAdmin);
+        res.json({ user: publicCmsUser(user) });
+        return;
+      }
+      if (req.method === "POST" && route === "login") {
+        assertTrustedWrite(req);
+        const body = bodyRecord(req.body);
+        const username = requiredString(body, "username");
+        const password = requiredString(body, "password");
+        const result = await userStore.login(
+          username,
+          password,
+          requestIp(req)
+        );
+        setCmsSessionCookie(res, req, result.sessionToken);
+        res.json({ user: publicCmsUser(result.principal) });
+        return;
+      }
+      if (req.method === "POST" && route === "logout") {
+        assertTrustedWrite(req);
+        const token = getCmsSessionToken(req);
+        clearCmsSessionCookie(res, req);
+        if (token) await userStore.logout(token);
+        res.json({ ok: true });
+        return;
+      }
+      if (req.method === "POST" && route === "password") {
+        assertTrustedWrite(req);
+        const token = getCmsSessionToken(req);
+        if (!token) throw new CmsAuthError(401, "Authentication required.");
+        await authenticateCmsAdmin(req, userStore);
+        const body = bodyRecord(req.body);
+        const currentPassword = requiredString(body, "currentPassword");
+        const newPassword = requiredString(body, "newPassword");
+        validateCmsPassword(newPassword, "New password");
+        const result = await userStore.changePassword(
+          token,
+          currentPassword,
+          newPassword
+        );
+        setCmsSessionCookie(res, req, result.sessionToken);
+        res.json({ user: publicCmsUser(result.principal) });
+        return;
+      }
+      if (req.method === "GET" && route === "users") {
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const result = await userStore.listUsers();
+        res.json(result);
+        return;
+      }
+      if (route === "users" && req.method === "POST") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        const result = await userStore.createEditor({
+          username: requiredString(body, "username"),
+          password: requiredString(body, "password"),
+          name: optionalName(body),
+          revision: requiredString(body, "revision")
+        });
+        res.json(result);
+        return;
+      }
+      if (route === "users" && req.method === "PUT") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        if (typeof body.enabled !== "boolean") {
+          throw new CmsValidationError("Enabled must be boolean.");
+        }
+        const result = await userStore.setEditorEnabled({
+          id: requiredString(body, "id"),
+          enabled: body.enabled,
+          revision: requiredString(body, "revision")
+        });
+        res.json(result);
+        return;
+      }
+      if (route === "users" && req.method === "DELETE") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        const result = await userStore.removeEditor({
+          id: requiredString(body, "id"),
+          revision: requiredString(body, "revision")
+        });
+        res.json(result);
+        return;
+      }
       if (req.method === "GET" && route === "admin") {
-        await authenticate(req, authenticateAdmin);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
         if (!store.configured) throw new CmsStorageError();
         const snapshot = await store.readSnapshot();
         res.json(adminDocument(snapshot.document));
@@ -1267,7 +2281,8 @@ function registerCmsRoutes(app, options = {}) {
           return;
         }
         assertTrustedWrite(req);
-        await authenticate(req, authenticateAdmin);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
         if (!store.configured) throw new CmsStorageError();
       }
       if (req.method === "PUT" && route === "draft") {
@@ -1315,7 +2330,7 @@ function registerCmsRoutes(app, options = {}) {
         res.json({ url: createMediaUrl(pathname), filename });
         return;
       }
-      res.setHeader("Allow", "GET, PUT, POST, OPTIONS");
+      res.setHeader("Allow", "GET, PUT, POST, DELETE, OPTIONS");
       res.status(405).json({ error: "Method not allowed" });
     } catch (error) {
       sendError(res, error);
@@ -1336,5 +2351,6 @@ function createCmsApp(options = {}) {
 export {
   createCmsApp,
   isTrustedCmsOrigin,
-  registerCmsRoutes
+  registerCmsRoutes,
+  requestIp
 };

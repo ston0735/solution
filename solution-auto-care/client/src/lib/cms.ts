@@ -1,5 +1,30 @@
 import type { SiteContent } from "@shared/siteContent";
 
+export type CmsRole = "owner" | "editor";
+export type CmsUserId = string;
+
+export type CmsPrincipal = {
+  id: CmsUserId;
+  username: string;
+  name?: string | null;
+  role: CmsRole;
+  mustChangePassword: boolean;
+};
+
+export type CmsSessionResponse = {
+  user: CmsPrincipal;
+};
+
+export type CmsUserRecord = CmsPrincipal & {
+  enabled: boolean;
+  createdAt: string;
+};
+
+export type CmsUsersResponse = {
+  users: CmsUserRecord[];
+  revision: string;
+};
+
 export type CmsAdminSnapshot = {
   draft: SiteContent | null;
   published: SiteContent | null;
@@ -50,12 +75,13 @@ function messageFromPayload(payload: unknown, fallback: string) {
   return fallback;
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   init: RequestInit = {},
   writing = false
 ): Promise<T> {
   const headers = new Headers(init.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
   if (writing) {
     headers.set("Content-Type", "application/json");
     headers.set("X-Solution-CMS", "1");
@@ -67,6 +93,7 @@ async function request<T>(
       ...init,
       headers,
       credentials: "include",
+      cache: "no-store",
     });
   } catch (error) {
     throw new CmsApiError(
@@ -85,6 +112,80 @@ async function request<T>(
     );
   }
   return payload as T;
+}
+
+export function getCmsSession() {
+  return request<CmsSessionResponse>("/api/cms/session");
+}
+
+export function loginCms(username: string, password: string) {
+  return request<CmsSessionResponse>(
+    "/api/cms/login",
+    {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    },
+    true
+  );
+}
+
+export function logoutCms() {
+  return request<{ ok: true }>(
+    "/api/cms/logout",
+    { method: "POST", body: JSON.stringify({}) },
+    true
+  );
+}
+
+export function changeCmsPassword(
+  currentPassword: string,
+  newPassword: string
+) {
+  return request<CmsSessionResponse>(
+    "/api/cms/password",
+    {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    },
+    true
+  );
+}
+
+export function getCmsUsers() {
+  return request<CmsUsersResponse>("/api/cms/users");
+}
+
+export function createCmsUser(input: {
+  username: string;
+  password: string;
+  name?: string;
+  revision: string;
+}) {
+  return request<unknown>(
+    "/api/cms/users",
+    { method: "POST", body: JSON.stringify(input) },
+    true
+  );
+}
+
+export function setCmsUserEnabled(
+  id: CmsUserId,
+  enabled: boolean,
+  revision: string
+) {
+  return request<unknown>(
+    "/api/cms/users",
+    { method: "PUT", body: JSON.stringify({ id, enabled, revision }) },
+    true
+  );
+}
+
+export function deleteCmsUser(id: CmsUserId, revision: string) {
+  return request<unknown>(
+    "/api/cms/users",
+    { method: "DELETE", body: JSON.stringify({ id, revision }) },
+    true
+  );
 }
 
 export function getCmsAdminSnapshot() {

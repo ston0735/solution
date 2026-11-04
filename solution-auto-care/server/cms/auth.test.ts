@@ -1,71 +1,140 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import type { Request } from "express";
-import { authenticateCmsAdmin, CMS_AUTH_ME_URL } from "./auth";
+import { authenticateCmsAdmin, getCmsSessionToken } from "./auth";
 import { CmsAuthError } from "./errors";
+import {
+  createCmsUserStore,
+  getCmsAuthPath,
+  type CmsAuthBlobClient,
+} from "./userStore";
+import type { CmsBlobGetResult } from "./store";
 
-function requestWithHeaders(headers: Record<string, string>): Request {
-  return { headers } as unknown as Request;
+type Entry = {
+  body: Buffer;
+  etag: string;
+  contentType: string;
+};
+
+class MockBlobClient implements CmsAuthBlobClient {
+  readonly blobs = new Map<string, Entry>();
+  private nextEtag = 1;
+
+  async get(pathname: string): Promise<CmsBlobGetResult | null> {
+    const entry = this.blobs.get(pathname);
+    if (!entry) return null;
+    return {
+      statusCode: 200,
+      stream: new Response(new Uint8Array(entry.body)).body,
+      blob: { pathname, contentType: entry.contentType, etag: entry.etag },
+    };
+  }
+
+  async put(
+    pathname: string,
+    body: unknown,
+    options: { allowOverwrite: boolean; contentType?: string; ifMatch?: string }
+  ): Promise<void> {
+    const existing = this.blobs.get(pathname);
+    if (existing && !options.allowOverwrite) {
+      throw Object.assign(new Error("already exists"), { status: 409 });
+    }
+    if (existing && options.ifMatch !== existing.etag) {
+      throw Object.assign(new Error("precondition failed"), {
+        name: "BlobPreconditionFailedError",
+        status: 412,
+      });
+    }
+    const buffer = Buffer.isBuffer(body)
+      ? body
+      : Buffer.from(typeof body === "string" ? body : JSON.stringify(body));
+    this.blobs.set(pathname, {
+      body: buffer,
+      contentType:
+        options.contentType?.split(";", 1)[0] ?? "application/octet-stream",
+      etag: `etag-${this.nextEtag++}`,
+    });
+  }
 }
 
-function response(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+function requestWithCookie(token: string): Request {
+  return {
+    headers: { cookie: `solution_cms_session=${encodeURIComponent(token)}` },
+  } as unknown as Request;
 }
 
-describe("CMS remote admin authentication", () => {
-  it("forwards supported auth headers and accepts only a SuperJSON admin user", async () => {
-    const fetchImpl = vi.fn(
-      async (input: RequestInfo | URL, init?: RequestInit) => {
-        expect(String(input)).toBe(CMS_AUTH_ME_URL);
-        const headers = new Headers(init?.headers);
-        expect(headers.get("cookie")).toBe("app_session_id=original-session");
-        expect(headers.get("x-manus-cookie")).toBe(
-          "app_session_id=relay-session"
-        );
-        expect(headers.get("authorization")).toBe("Bearer original-session");
-        return response(200, [
-          { result: { data: { json: { openId: "admin-1", role: "admin" } } } },
-        ]);
-      }
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("CMS local session authentication", () => {
+  it("seeds only after a correct bootstrap login and never stores a plaintext password", async () => {
+    vi.stubEnv("CMS_BOOTSTRAP_USERNAME", "owner-test");
+    vi.stubEnv("CMS_BOOTSTRAP_PASSWORD", "weak-start");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    const blob = new MockBlobClient();
+    const store = createCmsUserStore(blob, { configured: true });
+    const authPath = getCmsAuthPath("preview");
+
+    await expect(
+      store.login("owner-test", "wrong-start", "test-initial-wrong")
+    ).rejects.toMatchObject({ status: 401 });
+    expect(blob.blobs.has(authPath)).toBe(false);
+
+    const login = await store.login(
+      "OWNER-TEST",
+      "weak-start",
+      "test-initial-correct"
     );
+    expect(login.principal).toMatchObject({
+      role: "admin",
+      cmsRole: "owner",
+      username: "owner-test",
+      mustChangePassword: true,
+    });
+    expect(login.sessionToken).toHaveLength(43);
+    expect(blob.blobs.has(authPath)).toBe(true);
 
-    const user = await authenticateCmsAdmin(
-      requestWithHeaders({
-        cookie: "app_session_id=original-session",
-        "x-manus-cookie": "app_session_id=relay-session",
-        authorization: "Bearer original-session",
+    const stored = await store.readSnapshot();
+    expect(stored.document?.accounts[0]).not.toHaveProperty(
+      "password",
+      "weak-start"
+    );
+    expect(stored.document?.accounts[0].passwordHash).not.toContain(
+      "weak-start"
+    );
+    expect(stored.document?.sessions[0].tokenHash).not.toBe(login.sessionToken);
+
+    const principal = await authenticateCmsAdmin(
+      requestWithCookie(login.sessionToken),
+      store
+    );
+    expect(principal).toMatchObject({
+      username: "owner-test",
+      cmsRole: "owner",
+    });
+    expect(getCmsSessionToken(requestWithCookie(login.sessionToken))).toBe(
+      login.sessionToken
+    );
+  });
+
+  it("rejects missing or invalid local cookies and never calls a remote provider", async () => {
+    const store = {
+      authenticateSession: vi.fn(async () => {
+        throw new CmsAuthError(503, "Authentication service unavailable.");
       }),
-      fetchImpl
-    );
-    expect(user.role).toBe("admin");
-  });
-
-  it("returns 403 for a valid non-admin and 401 for no valid user", async () => {
-    const nonAdmin = authenticateCmsAdmin(requestWithHeaders({}), async () =>
-      response(200, [{ result: { data: { json: { role: "user" } } } }])
-    );
-    await expect(nonAdmin).rejects.toMatchObject({ status: 403 });
-
-    const noUser = authenticateCmsAdmin(requestWithHeaders({}), async () =>
-      response(200, [{ result: { data: { json: null } } }])
-    );
-    await expect(noUser).rejects.toMatchObject({ status: 401 });
-  });
-
-  it("fails closed as 503 when the original auth service fails", async () => {
-    const unavailable = authenticateCmsAdmin(requestWithHeaders({}), async () =>
-      response(503, { error: "upstream" })
-    );
-    await expect(unavailable).rejects.toMatchObject({ status: 503 });
-
-    const networkFailure = authenticateCmsAdmin(
-      requestWithHeaders({}),
-      async () => {
-        throw new Error("network failure");
-      }
-    );
-    await expect(networkFailure).rejects.toBeInstanceOf(CmsAuthError);
+    } as never;
+    await expect(
+      authenticateCmsAdmin({ headers: {} } as Request, store)
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(
+      authenticateCmsAdmin(
+        requestWithCookie("not-a-valid-session-token"),
+        store
+      )
+    ).rejects.toMatchObject({ status: 503 });
+    expect(
+      (store as { authenticateSession: ReturnType<typeof vi.fn> })
+        .authenticateSession
+    ).toHaveBeenCalledTimes(1);
   });
 });

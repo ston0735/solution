@@ -1,14 +1,15 @@
 import { createServer, type Server } from "node:http";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "express";
 import { CmsAuthError } from "./errors";
-import { createCmsApp, isTrustedCmsOrigin } from "./routes.ts";
+import { createCmsApp, isTrustedCmsOrigin, requestIp } from "./routes.ts";
 import type { CmsAdminUser } from "./auth";
 import {
   createCmsStore,
   type CmsBlobClient,
   type CmsBlobGetResult,
 } from "./store";
+import { createCmsUserStore, getCmsAuthPath } from "./userStore";
 import {
   DEFAULT_SITE_CONTENT,
   type SiteContent,
@@ -71,6 +72,10 @@ class MockBlobClient implements CmsBlobClient {
 
 const admin: CmsAdminUser = { role: "admin", openId: "test-admin" };
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 function contentWithField(value: string): SiteContent {
   const content = JSON.parse(
     JSON.stringify(DEFAULT_SITE_CONTENT)
@@ -122,6 +127,44 @@ async function request(
 }
 
 describe("CMS routes", () => {
+  it("uses Vercel's trusted forwarding signal but ignores a raw forwarded-for spoof", () => {
+    const requestForIp = (
+      headers: Record<string, string>,
+      remoteAddress: string | undefined,
+      ip: string | undefined
+    ) =>
+      ({
+        get: (name: string) => headers[name.toLowerCase()],
+        socket: { remoteAddress },
+        ip,
+      }) as unknown as Request;
+
+    vi.stubEnv("VERCEL", "1");
+    expect(
+      requestIp(
+        requestForIp(
+          {
+            "x-vercel-forwarded-for": "203.0.113.10",
+            "x-forwarded-for": "198.51.100.99",
+          },
+          "10.0.0.4",
+          "10.0.0.5"
+        )
+      )
+    ).toBe("203.0.113.10");
+
+    vi.stubEnv("VERCEL", "0");
+    expect(
+      requestIp(
+        requestForIp(
+          { "x-forwarded-for": "198.51.100.99" },
+          "10.0.0.4",
+          "10.0.0.5"
+        )
+      )
+    ).toBe("10.0.0.4");
+  });
+
   it("allows only the approved production, local, Manus, and project Preview origins", () => {
     expect(isTrustedCmsOrigin("https://solution-wrap.com")).toBe(true);
     expect(isTrustedCmsOrigin("https://www.solution-wrap.com")).toBe(true);
@@ -323,6 +366,184 @@ describe("CMS routes", () => {
         "/api/cms/media?key=cms%2Fmedia%2Fnot-safe.webp"
       );
       expect(malformed.status).toBe(404);
+    } finally {
+      await running.close();
+    }
+  });
+
+  it("implements local login/reset, cookie policy, CSRF, role gates, and owner user management", async () => {
+    vi.stubEnv("CMS_BOOTSTRAP_USERNAME", "owner-test");
+    vi.stubEnv("CMS_BOOTSTRAP_PASSWORD", "weak-start");
+    vi.stubEnv("VERCEL_ENV", "development");
+    const blob = new MockBlobClient();
+    const app = createCmsApp({
+      store: createCmsStore(blob, { configured: true }),
+      userStore: createCmsUserStore(blob, { configured: true }),
+    });
+    const running = await startApp(app);
+    const writeHeaders = {
+      Origin: "http://127.0.0.1:3000",
+      "X-Solution-CMS": "1",
+    };
+    const authPath = getCmsAuthPath("development");
+
+    try {
+      const status = await request(running.baseUrl, "/api/cms/status");
+      expect(status.status).toBe(200);
+      expect(status.headers.get("cache-control")).toBe("no-store");
+      expect(blob.blobs.has(authPath)).toBe(false);
+
+      const csrfLogin = await request(running.baseUrl, "/api/cms/login", {
+        method: "POST",
+        body: JSON.stringify({
+          username: "owner-test",
+          password: "weak-start",
+        }),
+      });
+      expect(csrfLogin.status).toBe(403);
+      expect(blob.blobs.has(authPath)).toBe(false);
+
+      const login = await request(running.baseUrl, "/api/cms/login", {
+        method: "POST",
+        headers: writeHeaders,
+        body: JSON.stringify({
+          username: "owner-test",
+          password: "weak-start",
+        }),
+      });
+      expect(login.status).toBe(200);
+      expect(login.headers.get("cache-control")).toBe("no-store");
+      expect(login.headers.get("set-cookie")).toContain("HttpOnly");
+      expect(login.headers.get("set-cookie")).toContain("SameSite=Lax");
+      expect(login.headers.get("set-cookie")).not.toContain("Secure");
+      const ownerCookie = login.headers.get("set-cookie")?.split(";", 1)[0];
+      expect(ownerCookie).toBeTruthy();
+      expect(login.body.user).toMatchObject({
+        username: "owner-test",
+        role: "owner",
+        mustChangePassword: true,
+      });
+
+      const session = await request(running.baseUrl, "/api/cms/session", {
+        headers: { Cookie: ownerCookie ?? "" },
+      });
+      expect(session.status).toBe(200);
+      expect(session.body.user.mustChangePassword).toBe(true);
+      expect(session.headers.get("cache-control")).toBe("no-store");
+
+      const gatedAdmin = await request(running.baseUrl, "/api/cms/admin", {
+        headers: { Cookie: ownerCookie ?? "" },
+      });
+      expect(gatedAdmin.status).toBe(403);
+
+      const password = await request(running.baseUrl, "/api/cms/password", {
+        method: "POST",
+        headers: { ...writeHeaders, Cookie: ownerCookie ?? "" },
+        body: JSON.stringify({
+          currentPassword: "weak-start",
+          newPassword: "replacement-password-12",
+        }),
+      });
+      expect(password.status).toBe(200);
+      expect(password.body.user.mustChangePassword).toBe(false);
+      const changedOwnerCookie = password.headers
+        .get("set-cookie")
+        ?.split(";", 1)[0];
+      expect(changedOwnerCookie).toBeTruthy();
+
+      const adminAfterReset = await request(running.baseUrl, "/api/cms/admin", {
+        headers: { Cookie: changedOwnerCookie ?? "" },
+      });
+      expect(adminAfterReset.status).toBe(200);
+      expect(adminAfterReset.headers.get("cache-control")).toBe("no-store");
+
+      const ownerUsers = await request(running.baseUrl, "/api/cms/users", {
+        headers: { Cookie: changedOwnerCookie ?? "" },
+      });
+      expect(ownerUsers.status).toBe(200);
+      expect(ownerUsers.headers.get("cache-control")).toBe("no-store");
+      const owner = ownerUsers.body.users.find(
+        (user: { username: string }) => user.username === "owner-test"
+      );
+      const createEditor = await request(running.baseUrl, "/api/cms/users", {
+        method: "POST",
+        headers: { ...writeHeaders, Cookie: changedOwnerCookie ?? "" },
+        body: JSON.stringify({
+          username: "editor-one",
+          password: "editor-password-12",
+          revision: ownerUsers.body.revision,
+        }),
+      });
+      expect(createEditor.status).toBe(200);
+      expect(JSON.stringify(createEditor.body)).not.toContain(
+        "editor-password-12"
+      );
+      expect(owner).toBeTruthy();
+
+      const editorLogin = await request(running.baseUrl, "/api/cms/login", {
+        method: "POST",
+        headers: writeHeaders,
+        body: JSON.stringify({
+          username: "editor-one",
+          password: "editor-password-12",
+        }),
+      });
+      const editorInitialCookie = editorLogin.headers
+        .get("set-cookie")
+        ?.split(";", 1)[0];
+      expect(editorLogin.body.user).toMatchObject({
+        role: "editor",
+        mustChangePassword: true,
+      });
+      const editorGatedUsers = await request(
+        running.baseUrl,
+        "/api/cms/users",
+        {
+          headers: { Cookie: editorInitialCookie ?? "" },
+        }
+      );
+      expect(editorGatedUsers.status).toBe(403);
+
+      const editorPassword = await request(
+        running.baseUrl,
+        "/api/cms/password",
+        {
+          method: "POST",
+          headers: { ...writeHeaders, Cookie: editorInitialCookie ?? "" },
+          body: JSON.stringify({
+            currentPassword: "editor-password-12",
+            newPassword: "editor-replacement-12",
+          }),
+        }
+      );
+      const editorCookie = editorPassword.headers
+        .get("set-cookie")
+        ?.split(";", 1)[0];
+      const editorUsers = await request(running.baseUrl, "/api/cms/users", {
+        headers: { Cookie: editorCookie ?? "" },
+      });
+      expect(editorUsers.status).toBe(403);
+      const editorAdmin = await request(running.baseUrl, "/api/cms/admin", {
+        headers: { Cookie: editorCookie ?? "" },
+      });
+      expect(editorAdmin.status).toBe(200);
+      const ownerUsersAfterEditorLogin = await request(
+        running.baseUrl,
+        "/api/cms/users",
+        { headers: { Cookie: changedOwnerCookie ?? "" } }
+      );
+      expect(ownerUsersAfterEditorLogin.status).toBe(200);
+
+      const ownerDisable = await request(running.baseUrl, "/api/cms/users", {
+        method: "PUT",
+        headers: { ...writeHeaders, Cookie: changedOwnerCookie ?? "" },
+        body: JSON.stringify({
+          id: owner.id,
+          enabled: false,
+          revision: ownerUsersAfterEditorLogin.body.revision,
+        }),
+      });
+      expect(ownerDisable.status).toBe(403);
     } finally {
       await running.close();
     }

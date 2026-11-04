@@ -4,6 +4,7 @@ import {
   validateSiteContent,
   type SiteContent,
 } from "@shared/siteContent";
+import { getCmsAdminSnapshot, getCmsSession } from "@/lib/cms";
 import {
   createContext,
   useCallback,
@@ -48,6 +49,11 @@ function isCmsPreviewRequested(): boolean {
   return new URLSearchParams(window.location.search).get("cms-preview") === "1";
 }
 
+function isCmsWorkspaceRequested(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname === "/admin/content";
+}
+
 function mergePublicPayload(value: unknown): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return value;
@@ -86,6 +92,7 @@ export function SiteContentProvider({
   const suppliedContent = contentOverride ?? content ?? null;
   const hasSuppliedContent = suppliedContent !== null;
   const requestedPreview = isCmsPreviewRequested();
+  const cmsWorkspaceRequested = isCmsWorkspaceRequested();
   const suppliedSnapshot = useMemo(
     () => (suppliedContent ? validateSiteContent(suppliedContent) : null),
     [suppliedContent]
@@ -106,6 +113,17 @@ export function SiteContentProvider({
 
     setLoading(true);
     setError(null);
+
+    // The CMS workspace has its own session gate and does not need public site
+    // content while credentials are being entered. This also prevents a first
+    // login that still requires a password change from fetching any content.
+    if (cmsWorkspaceRequested) {
+      setPreviewContentState(null);
+      setRemoteContent(DEFAULT_SITE_CONTENT);
+      setLoading(false);
+      return;
+    }
+
     let publishedContent = DEFAULT_SITE_CONTENT;
     let publishedError: Error | null = null;
     try {
@@ -146,29 +164,21 @@ export function SiteContentProvider({
     }
 
     try {
-      const response = await fetch("/api/cms/admin", {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        throw new Error(`CMS preview request failed (${response.status})`);
+      const session = await getCmsSession();
+      if (session.user.mustChangePassword) {
+        throw new Error(
+          "CMS preview requires the password change to be completed"
+        );
       }
-      const payload: unknown = await response.json();
-      if (
-        typeof payload !== "object" ||
-        payload === null ||
-        Array.isArray(payload) ||
-        !("draft" in payload)
-      ) {
-        throw new Error("CMS preview response is malformed");
-      }
+      const snapshot = await getCmsAdminSnapshot();
 
-      // The server's successful admin response is the authorization boundary.
-      // Never use a draft-shaped value from an unauthorized or failed response.
-      const draft = validateSiteContent((payload as { draft: unknown }).draft);
-      setPreviewContentState(draft);
+      // The CMS session plus successful admin response are the authorization
+      // boundary. Never use a draft-shaped value from an unauthorized response.
+      if (!snapshot.draft) {
+        setPreviewContentState(null);
+      } else {
+        setPreviewContentState(validateSiteContent(snapshot.draft));
+      }
       setError(publishedError);
     } catch (value) {
       // A failed admin request must fall back to published content and must not
@@ -178,7 +188,7 @@ export function SiteContentProvider({
     } finally {
       setLoading(false);
     }
-  }, [hasSuppliedContent, requestedPreview]);
+  }, [cmsWorkspaceRequested, hasSuppliedContent, requestedPreview]);
 
   useEffect(() => {
     if (hasSuppliedContent) {

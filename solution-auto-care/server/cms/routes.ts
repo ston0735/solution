@@ -1,6 +1,9 @@
 import express, { type Express, type Request, type Response } from "express";
 import {
   authenticateCmsAdmin,
+  clearCmsSessionCookie,
+  getCmsSessionToken,
+  setCmsSessionCookie,
   type CmsAdminUser,
   type CmsAuthenticator,
 } from "./auth";
@@ -28,6 +31,11 @@ import {
   type CmsStore,
 } from "./store";
 import {
+  createCmsUserStore,
+  validateCmsPassword,
+  type CmsUserStore,
+} from "./userStore";
+import {
   validateSiteContent,
   type SiteContent,
 } from "../../shared/siteContent";
@@ -37,6 +45,7 @@ const CMS_WRITE_HEADER = "X-Solution-CMS";
 
 export type CmsRouteOptions = {
   store?: CmsStore;
+  userStore?: CmsUserStore;
   authenticateAdmin?: CmsAuthenticator;
   now?: () => Date;
 };
@@ -119,17 +128,6 @@ function assertExpectedRevision(snapshot: CmsSnapshot, revision: string): void {
   if (revision !== currentRevision) throw new CmsConflictError();
 }
 
-function assertTrustedWrite(req: Request): void {
-  if (req.get(CMS_WRITE_HEADER) !== "1") {
-    throw new CmsHttpError(403, "CMS write protection failed.");
-  }
-
-  const origin = req.get("Origin");
-  if (!origin || !isTrustedCmsOrigin(origin)) {
-    throw new CmsHttpError(403, "CMS write protection failed.");
-  }
-}
-
 export function isTrustedCmsOrigin(origin: string): boolean {
   let parsed: URL;
   try {
@@ -171,7 +169,19 @@ export function isTrustedCmsOrigin(origin: string): boolean {
   );
 }
 
+function assertTrustedWrite(req: Request): void {
+  if (req.get(CMS_WRITE_HEADER) !== "1") {
+    throw new CmsHttpError(403, "CMS write protection failed.");
+  }
+
+  const origin = req.get("Origin");
+  if (!origin || !isTrustedCmsOrigin(origin)) {
+    throw new CmsHttpError(403, "CMS write protection failed.");
+  }
+}
+
 function sendError(res: Response, error: unknown): void {
+  res.setHeader("Cache-Control", "no-store");
   if (error instanceof CmsHttpError) {
     res.status(error.status).json({ error: error.safeMessage });
     return;
@@ -193,12 +203,83 @@ async function authenticate(
   }
 }
 
+function cmsRole(user: CmsAdminUser): "owner" | "editor" {
+  // A legacy injected role:'admin' mock has no CMS role and is treated as the
+  // owner for compatibility. Default local sessions always carry cmsRole.
+  return user.cmsRole === "editor" ? "editor" : "owner";
+}
+
+function assertContentAccess(user: CmsAdminUser): void {
+  if (user.mustChangePassword === true) {
+    throw new CmsAuthError(403, "Password change required.");
+  }
+}
+
+function assertOwner(user: CmsAdminUser): void {
+  if (cmsRole(user) !== "owner") {
+    throw new CmsAuthError(403, "Owner access required.");
+  }
+}
+
+function publicCmsUser(user: CmsAdminUser) {
+  return {
+    id: user.id,
+    username: user.username,
+    ...(user.name === undefined ? {} : { name: user.name }),
+    role: cmsRole(user),
+    mustChangePassword: user.mustChangePassword === true,
+  };
+}
+
+function bodyRecord(body: unknown): Record<string, unknown> {
+  if (!isRecord(body))
+    throw new CmsValidationError("Request body is required.");
+  return body;
+}
+
+function requiredString(body: Record<string, unknown>, field: string): string {
+  const value = body[field];
+  if (typeof value !== "string" || value.length === 0) {
+    throw new CmsValidationError(`${field} is required.`);
+  }
+  return value;
+}
+
+function optionalName(body: Record<string, unknown>): string | undefined {
+  if (body.name === undefined || body.name === null) return undefined;
+  if (typeof body.name !== "string")
+    throw new CmsValidationError("Name is invalid.");
+  return body.name;
+}
+
+export function requestIp(req: Request): string | undefined {
+  if (process.env.VERCEL === "1") {
+    const vercelForwarded = req.get("X-Vercel-Forwarded-For");
+    const trustedIp = vercelForwarded?.split(",", 1)[0]?.trim();
+    if (trustedIp) return trustedIp;
+  }
+  return req.socket.remoteAddress || req.ip || undefined;
+}
+
+const NO_STORE_ROUTES = new Set([
+  "status",
+  "session",
+  "login",
+  "logout",
+  "password",
+  "users",
+  "admin",
+]);
+
 export function registerCmsRoutes(
   app: Express,
   options: CmsRouteOptions = {}
 ): Express {
   const store = options.store ?? createCmsStore();
-  const authenticateAdmin = options.authenticateAdmin ?? authenticateCmsAdmin;
+  const userStore = options.userStore ?? createCmsUserStore();
+  const authenticateAdmin =
+    options.authenticateAdmin ??
+    ((req: Request) => authenticateCmsAdmin(req, userStore));
   const now = options.now ?? (() => new Date());
 
   const handle = async (req: Request, res: Response): Promise<void> => {
@@ -207,6 +288,8 @@ export function registerCmsRoutes(
       res.status(404).json({ error: "Not found" });
       return;
     }
+
+    if (NO_STORE_ROUTES.has(route)) res.setHeader("Cache-Control", "no-store");
 
     if (req.method === "OPTIONS") {
       // Deliberately do not emit Access-Control-Allow-* headers. CMS writes are
@@ -251,8 +334,115 @@ export function registerCmsRoutes(
         return;
       }
 
+      if (req.method === "GET" && route === "session") {
+        const user = await authenticate(req, authenticateAdmin);
+        res.json({ user: publicCmsUser(user) });
+        return;
+      }
+
+      if (req.method === "POST" && route === "login") {
+        assertTrustedWrite(req);
+        const body = bodyRecord(req.body);
+        const username = requiredString(body, "username");
+        const password = requiredString(body, "password");
+        const result = await userStore.login(
+          username,
+          password,
+          requestIp(req)
+        );
+        setCmsSessionCookie(res, req, result.sessionToken);
+        res.json({ user: publicCmsUser(result.principal) });
+        return;
+      }
+
+      if (req.method === "POST" && route === "logout") {
+        assertTrustedWrite(req);
+        const token = getCmsSessionToken(req);
+        clearCmsSessionCookie(res, req);
+        if (token) await userStore.logout(token);
+        res.json({ ok: true });
+        return;
+      }
+
+      if (req.method === "POST" && route === "password") {
+        assertTrustedWrite(req);
+        const token = getCmsSessionToken(req);
+        if (!token) throw new CmsAuthError(401, "Authentication required.");
+        await authenticateCmsAdmin(req, userStore);
+        const body = bodyRecord(req.body);
+        const currentPassword = requiredString(body, "currentPassword");
+        const newPassword = requiredString(body, "newPassword");
+        validateCmsPassword(newPassword, "New password");
+        const result = await userStore.changePassword(
+          token,
+          currentPassword,
+          newPassword
+        );
+        setCmsSessionCookie(res, req, result.sessionToken);
+        res.json({ user: publicCmsUser(result.principal) });
+        return;
+      }
+
+      if (req.method === "GET" && route === "users") {
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const result = await userStore.listUsers();
+        res.json(result);
+        return;
+      }
+
+      if (route === "users" && req.method === "POST") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        const result = await userStore.createEditor({
+          username: requiredString(body, "username"),
+          password: requiredString(body, "password"),
+          name: optionalName(body),
+          revision: requiredString(body, "revision"),
+        });
+        res.json(result);
+        return;
+      }
+
+      if (route === "users" && req.method === "PUT") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        if (typeof body.enabled !== "boolean") {
+          throw new CmsValidationError("Enabled must be boolean.");
+        }
+        const result = await userStore.setEditorEnabled({
+          id: requiredString(body, "id"),
+          enabled: body.enabled,
+          revision: requiredString(body, "revision"),
+        });
+        res.json(result);
+        return;
+      }
+
+      if (route === "users" && req.method === "DELETE") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        const result = await userStore.removeEditor({
+          id: requiredString(body, "id"),
+          revision: requiredString(body, "revision"),
+        });
+        res.json(result);
+        return;
+      }
+
       if (req.method === "GET" && route === "admin") {
-        await authenticate(req, authenticateAdmin);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
         if (!store.configured) throw new CmsStorageError();
         const snapshot = await store.readSnapshot();
         res.json(adminDocument(snapshot.document));
@@ -266,7 +456,8 @@ export function registerCmsRoutes(
           return;
         }
         assertTrustedWrite(req);
-        await authenticate(req, authenticateAdmin);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
         if (!store.configured) throw new CmsStorageError();
       }
 
@@ -318,7 +509,7 @@ export function registerCmsRoutes(
         return;
       }
 
-      res.setHeader("Allow", "GET, PUT, POST, OPTIONS");
+      res.setHeader("Allow", "GET, PUT, POST, DELETE, OPTIONS");
       res.status(405).json({ error: "Method not allowed" });
     } catch (error) {
       sendError(res, error);

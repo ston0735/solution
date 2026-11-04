@@ -1,36 +1,35 @@
-import type { Request } from "express";
+import type { Request, Response } from "express";
+import { parse as parseCookie } from "cookie";
 import { CmsAuthError } from "./errors";
+import {
+  CMS_AUTH_COOKIE,
+  CMS_AUTH_SESSION_TTL_MS,
+  createCmsUserStore,
+  type CmsAuthRole,
+  type CmsPrincipal,
+  type CmsUserStore,
+} from "./userStore";
 
-export const CMS_AUTH_ME_URL =
-  "https://solutionauth-zcgxwa4c.manus.space/api/trpc/auth.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%7D%7D";
+export const CMS_SESSION_COOKIE = CMS_AUTH_COOKIE;
 
-const REMOTE_AUTH_TIMEOUT_MS = 5_000;
-
-type RemoteUser = {
-  role: string;
+// This compatibility shape keeps existing registerCmsRoutes test seams usable:
+// legacy injected admins only need role:"admin", while the default local
+// authenticator always supplies cmsRole, id, username, and mustChangePassword.
+export type CmsAdminUser = {
+  role: "admin";
+  cmsRole?: CmsAuthRole;
+  id?: string;
+  username?: string;
+  name?: string;
+  mustChangePassword?: boolean;
+  openId?: string;
   [key: string]: unknown;
 };
 
-export type CmsAdminUser = RemoteUser & { role: "admin" };
 export type CmsAuthenticator = (req: Request) => Promise<CmsAdminUser>;
-export type CmsFetch = typeof fetch;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function unwrapTrpcUser(payload: unknown): unknown {
-  const batchItem = Array.isArray(payload) ? payload[0] : payload;
-  if (!isRecord(batchItem)) return undefined;
-
-  const result = batchItem.result;
-  if (!isRecord(result)) return undefined;
-
-  const data = result.data;
-  if (isRecord(data) && Object.prototype.hasOwnProperty.call(data, "json")) {
-    return data.json;
-  }
-  return data;
+function asCmsAdminUser(principal: CmsPrincipal): CmsAdminUser {
+  return principal;
 }
 
 function getHeader(req: Request, name: string): string | undefined {
@@ -39,68 +38,82 @@ function getHeader(req: Request, name: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-function buildForwardHeaders(req: Request): Headers {
-  const headers = new Headers({ Accept: "application/json" });
-  const cookie = getHeader(req, "cookie");
-  const manusCookie = getHeader(req, "x-manus-cookie");
-  const authorization = getHeader(req, "authorization");
+export function getCmsSessionToken(req: Request): string | null {
+  const header = getHeader(req, "cookie");
+  if (!header) return null;
+  const cookies = parseCookie(header);
+  const token = cookies[CMS_SESSION_COOKIE];
+  return token && token.length <= 200 ? token : null;
+}
 
-  if (cookie) headers.set("Cookie", cookie);
-  if (manusCookie) {
-    headers.set("x-manus-cookie", manusCookie);
-    // Some Preview relays provide the cookie value only in this header. If it
-    // already looks like a Cookie header, also pass it through as Cookie.
-    if (!cookie && manusCookie.includes("=")) {
-      headers.set("Cookie", manusCookie);
-    }
+function cookieSecurityForOrigin(req: Request): {
+  secure: boolean;
+  sameSite: "none" | "lax";
+} {
+  const origin = getHeader(req, "origin");
+  if (!origin) {
+    throw new CmsAuthError(403, "CMS write protection failed.");
   }
-  if (authorization) headers.set("Authorization", authorization);
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    throw new CmsAuthError(403, "CMS write protection failed.");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new CmsAuthError(403, "CMS write protection failed.");
+  }
+  return parsed.protocol === "https:"
+    ? { secure: true, sameSite: "none" }
+    : { secure: false, sameSite: "lax" };
+}
 
-  return headers;
+function serializeCmsCookie(
+  token: string,
+  security: { secure: boolean; sameSite: "none" | "lax" },
+  maxAge: number
+): string {
+  return [
+    `${CMS_SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    `Max-Age=${maxAge}`,
+    "Path=/",
+    "HttpOnly",
+    `SameSite=${security.sameSite === "none" ? "None" : "Lax"}`,
+    ...(security.secure ? ["Secure"] : []),
+  ].join("; ");
+}
+
+export function setCmsSessionCookie(
+  res: Response,
+  req: Request,
+  token: string
+): void {
+  const security = cookieSecurityForOrigin(req);
+  res.append(
+    "Set-Cookie",
+    serializeCmsCookie(
+      token,
+      security,
+      Math.floor(CMS_AUTH_SESSION_TTL_MS / 1000)
+    )
+  );
+}
+
+export function clearCmsSessionCookie(res: Response, req: Request): void {
+  const security = cookieSecurityForOrigin(req);
+  res.append("Set-Cookie", serializeCmsCookie("", security, 0));
 }
 
 export async function authenticateCmsAdmin(
   req: Request,
-  fetchImpl: CmsFetch = fetch
+  userStore: CmsUserStore = createCmsUserStore()
 ): Promise<CmsAdminUser> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REMOTE_AUTH_TIMEOUT_MS);
-
-  let response: Response;
+  const token = getCmsSessionToken(req);
+  if (!token) throw new CmsAuthError(401, "Authentication required.");
   try {
-    response = await fetchImpl(CMS_AUTH_ME_URL, {
-      method: "GET",
-      headers: buildForwardHeaders(req),
-      signal: controller.signal,
-    });
-  } catch {
-    throw new CmsAuthError(503, "Authentication service unavailable.");
-  } finally {
-    clearTimeout(timeout);
-  }
-
-  if (response.status === 401 || response.status === 403) {
-    throw new CmsAuthError(401, "Authentication required.");
-  }
-  if (!response.ok) {
+    return asCmsAdminUser(await userStore.authenticateSession(token));
+  } catch (error) {
+    if (error instanceof CmsAuthError) throw error;
     throw new CmsAuthError(503, "Authentication service unavailable.");
   }
-
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new CmsAuthError(503, "Authentication service unavailable.");
-  }
-
-  const user = unwrapTrpcUser(payload);
-  if (!isRecord(user)) {
-    throw new CmsAuthError(401, "Authentication required.");
-  }
-
-  if (user.role !== "admin") {
-    throw new CmsAuthError(403, "Admin access required.");
-  }
-
-  return user as CmsAdminUser;
 }
