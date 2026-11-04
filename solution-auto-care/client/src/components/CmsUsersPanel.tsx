@@ -1,7 +1,10 @@
 import {
   createCmsUser,
   deleteCmsUser,
+  getCmsSession,
   getCmsUsers,
+  CmsApiError,
+  setCmsUserGoogleEmail,
   setCmsUserEnabled,
   type CmsUserRecord,
 } from "@/lib/cms";
@@ -11,6 +14,8 @@ import {
   CircleOff,
   LoaderCircle,
   LockKeyhole,
+  Link2,
+  Link2Off,
   Plus,
   RefreshCcw,
   ShieldCheck,
@@ -52,6 +57,35 @@ export default function CmsUsersPanel() {
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [initialPassword, setInitialPassword] = useState("");
+  const [googleEmailDrafts, setGoogleEmailDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [googleSavingId, setGoogleSavingId] = useState<string | null>(null);
+
+  const confirmSessionLoss = useCallback(
+    async (value: unknown) => {
+      if (
+        !(value instanceof CmsApiError) ||
+        (value.status !== 401 && value.status !== 403)
+      ) {
+        return false;
+      }
+      try {
+        await getCmsSession();
+        return false;
+      } catch (sessionError) {
+        if (
+          sessionError instanceof CmsApiError &&
+          (sessionError.status === 401 || sessionError.status === 403)
+        ) {
+          clearSession();
+          return true;
+        }
+        return false;
+      }
+    },
+    [clearSession]
+  );
 
   const loadUsers = useCallback(async () => {
     if (currentUser?.role !== "owner") return;
@@ -61,19 +95,21 @@ export default function CmsUsersPanel() {
       const response = await getCmsUsers();
       setUsers(response.users);
       setRevision(response.revision);
+      setGoogleEmailDrafts(
+        Object.fromEntries(
+          response.users.map(account => [
+            String(account.id),
+            account.googleEmail?.trim() ?? "",
+          ])
+        )
+      );
     } catch (value) {
-      if (value && typeof value === "object" && "status" in value) {
-        const statusCode = (value as { status?: unknown }).status;
-        if (statusCode === 401 || statusCode === 403) {
-          clearSession();
-          return;
-        }
-      }
+      if (await confirmSessionLoss(value)) return;
       setError("CMS 帳戶資料暫時無法載入，請稍後再試。 ");
     } finally {
       setLoading(false);
     }
-  }, [clearSession, currentUser?.role]);
+  }, [confirmSessionLoss, currentUser?.role]);
 
   useEffect(() => {
     void loadUsers();
@@ -107,12 +143,9 @@ export default function CmsUsersPanel() {
       );
       await loadUsers();
     } catch (value) {
+      if (await confirmSessionLoss(value)) return;
       if (value && typeof value === "object" && "status" in value) {
         const statusCode = (value as { status?: unknown }).status;
-        if (statusCode === 401 || statusCode === 403) {
-          clearSession();
-          return;
-        }
         if (statusCode === 409) {
           setError("帳戶資料已被其他主權限更新，請重新載入後再試。 ");
         } else if (statusCode === 422 || statusCode === 400) {
@@ -145,12 +178,9 @@ export default function CmsUsersPanel() {
       setStatus(`已${action}內容管理員「${userLabel(account)}」。`);
       await loadUsers();
     } catch (value) {
+      if (await confirmSessionLoss(value)) return;
       if (value && typeof value === "object" && "status" in value) {
         const statusCode = (value as { status?: unknown }).status;
-        if (statusCode === 401 || statusCode === 403) {
-          clearSession();
-          return;
-        }
         setError(
           statusCode === 409
             ? "帳戶資料已被更新，請重新載入後再試。 "
@@ -178,12 +208,9 @@ export default function CmsUsersPanel() {
       setStatus(`已移除內容管理員「${userLabel(account)}」的 CMS 存取權。`);
       await loadUsers();
     } catch (value) {
+      if (await confirmSessionLoss(value)) return;
       if (value && typeof value === "object" && "status" in value) {
         const statusCode = (value as { status?: unknown }).status;
-        if (statusCode === 401 || statusCode === 403) {
-          clearSession();
-          return;
-        }
         setError(
           statusCode === 409
             ? "帳戶資料已被更新，請重新載入後再試。 "
@@ -194,6 +221,72 @@ export default function CmsUsersPanel() {
       }
     } finally {
       setMutationLoading(false);
+    }
+  };
+
+  const handleGoogleEmail = async (account: CmsUserRecord) => {
+    if (mutationLoading || googleSavingId) return;
+    const accountId = String(account.id);
+    const currentEmail = account.googleEmail?.trim() ?? "";
+    const nextEmail = (googleEmailDrafts[accountId] ?? "").trim();
+    if (currentEmail === nextEmail) {
+      setStatus("Google email 授權沒有變更。 ");
+      return;
+    }
+    if (nextEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      setError("請輸入有效的 Google email，或清空欄位以解除授權。 ");
+      setStatus("");
+      return;
+    }
+
+    if (currentEmail) {
+      const action = nextEmail ? "更新" : "解除";
+      const detail = nextEmail
+        ? `改為「${nextEmail}」`
+        : "清除目前核准的 Google email";
+      const confirmed = window.confirm(
+        `確定要${action}「${userLabel(account)}」的 Google 登入授權，${detail}嗎？這會撤銷該帳戶現有的 Google CMS session；若這是目前主權限自己的 email，完成後可能需要重新登入。`
+      );
+      if (!confirmed) return;
+    }
+
+    setGoogleSavingId(accountId);
+    setError("");
+    setStatus("");
+    try {
+      const response = await setCmsUserGoogleEmail(
+        account.id,
+        nextEmail || null,
+        revision
+      );
+      setUsers(response.users);
+      setRevision(response.revision);
+      setGoogleEmailDrafts(
+        Object.fromEntries(
+          response.users.map(item => [
+            String(item.id),
+            item.googleEmail?.trim() ?? "",
+          ])
+        )
+      );
+      setStatus(
+        nextEmail
+          ? currentEmail
+            ? `已更新「${userLabel(account)}」的 Google email 授權。`
+            : `已核准「${userLabel(account)}」使用此 Google email；首次登入後才會綁定 Google 身分。`
+          : `已解除「${userLabel(account)}」的 Google 登入授權。`
+      );
+      await loadUsers();
+    } catch (value) {
+      if (await confirmSessionLoss(value)) return;
+      if (value instanceof CmsApiError && value.status === 409) {
+        setError("帳戶資料已被更新，已重新載入最新 Google 授權狀態，請再試。 ");
+        await loadUsers();
+      } else {
+        setError("Google email 授權更新失敗，請稍後再試。 ");
+      }
+    } finally {
+      setGoogleSavingId(null);
     }
   };
 
@@ -364,6 +457,11 @@ export default function CmsUsersPanel() {
           <div className="divide-y divide-white/8">
             {users.map(account => {
               const isOwner = account.role === "owner";
+              const accountId = String(account.id);
+              const currentGoogleEmail = account.googleEmail?.trim() ?? "";
+              const googleDraft =
+                googleEmailDrafts[accountId] ?? currentGoogleEmail;
+              const googleBusy = googleSavingId === accountId;
               return (
                 <article
                   key={String(account.id)}
@@ -397,6 +495,84 @@ export default function CmsUsersPanel() {
                         建立於 {formatCreatedAt(account.createdAt)}
                       </p>
                     </div>
+                  </div>
+                  <div className="min-w-0 flex-1 border border-white/10 bg-[#0d0f0d] p-3 sm:p-4 lg:max-w-[540px]">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {currentGoogleEmail ? (
+                          <Link2
+                            className="h-4 w-4 text-[#a9ff44]"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Link2Off
+                            className="h-4 w-4 text-white/35"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <p className="text-xs font-bold text-white/80">
+                          Google 登入授權
+                        </p>
+                      </div>
+                      <span
+                        className={`border px-2 py-1 text-[10px] font-bold ${currentGoogleEmail ? (account.googleLinked ? "border-[#a9ff44]/35 text-[#a9ff44]" : "border-[#f6c453]/35 text-[#f6d98c]") : "border-white/12 text-white/40"}`}
+                      >
+                        {currentGoogleEmail
+                          ? account.googleLinked
+                            ? "已綁定 Google 身分"
+                            : "等待首次 Google 登入"
+                          : "未核准"}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                      <label
+                        htmlFor={`cms-google-email-${accountId}`}
+                        className="sr-only"
+                      >
+                        {userLabel(account)} 的核准 Google email
+                      </label>
+                      <input
+                        id={`cms-google-email-${accountId}`}
+                        type="email"
+                        value={googleDraft}
+                        onChange={event =>
+                          setGoogleEmailDrafts(current => ({
+                            ...current,
+                            [accountId]: event.target.value,
+                          }))
+                        }
+                        autoComplete="off"
+                        placeholder="核准的 Google email"
+                        className={`${inputClass} min-w-0 flex-1`}
+                        disabled={mutationLoading || Boolean(googleSavingId)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleGoogleEmail(account)}
+                        disabled={
+                          mutationLoading ||
+                          Boolean(googleSavingId) ||
+                          googleDraft.trim() === currentGoogleEmail
+                        }
+                        className={buttonClass}
+                      >
+                        {googleBusy ? (
+                          <LoaderCircle
+                            className="h-3.5 w-3.5 animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : currentGoogleEmail ? (
+                          "更新／解除"
+                        ) : (
+                          "核准 email"
+                        )}
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-white/40">
+                      只允許既有 CMS
+                      帳戶使用，不會自動建立帳戶；首次核准可保留現有
+                      session。更新或解除會撤銷該帳戶的 Google session。
+                    </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                     {isOwner ? (

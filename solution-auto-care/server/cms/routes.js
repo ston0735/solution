@@ -76,6 +76,10 @@ var CMS_AUTH_MIN_PASSWORD_LENGTH = 12;
 var CMS_AUTH_MAX_USERNAME_LENGTH = 32;
 var CMS_AUTH_MAX_NAME_LENGTH = 120;
 var CMS_AUTH_MAX_REVISION_LENGTH = 200;
+var CMS_AUTH_MAX_GOOGLE_EMAIL_LENGTH = 254;
+var CMS_AUTH_MAX_GOOGLE_SUB_LENGTH = 255;
+var CMS_AUTH_MAX_GOOGLE_CHALLENGES = 100;
+var CMS_GOOGLE_NONCE_TTL_MS = 5 * 60 * 1e3;
 var LOGIN_FAILURE_LIMIT = 5;
 var LOGIN_FAILURE_WINDOW_MS = 15 * 60 * 1e3;
 var LOGIN_LOCKOUT_MS = 15 * 60 * 1e3;
@@ -164,6 +168,48 @@ function validateCmsPassword(value, field2 = "Password") {
     );
   }
   return value;
+}
+var GOOGLE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+$/;
+function normalizeCmsGoogleEmail(value) {
+  if (value === null || value === void 0) return null;
+  if (typeof value !== "string") {
+    throw new CmsValidationError("Google email is invalid.");
+  }
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length === 0 || normalized.length > CMS_AUTH_MAX_GOOGLE_EMAIL_LENGTH || !GOOGLE_EMAIL_PATTERN.test(normalized)) {
+    if (normalized.length === 0) return null;
+    throw new CmsValidationError("Google email is invalid.");
+  }
+  return normalized;
+}
+function parseOptionalGoogleEmail(value) {
+  if (value === void 0) return void 0;
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_GOOGLE_EMAIL_LENGTH || !GOOGLE_EMAIL_PATTERN.test(value)) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return value;
+}
+function parseOptionalGoogleSub(value) {
+  if (value === void 0) return void 0;
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_GOOGLE_SUB_LENGTH) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return value;
+}
+function parseGoogleChallenges(value) {
+  if (value === void 0) return [];
+  if (!Array.isArray(value) || value.length > CMS_AUTH_MAX_GOOGLE_CHALLENGES) {
+    throw new CmsStorageError("CMS authentication document is invalid.");
+  }
+  return value.map((item) => {
+    if (!isRecord(item)) {
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    }
+    if (typeof item.hash !== "string" || !/^[a-f0-9]{64}$/.test(item.hash) || typeof item.expiresAt !== "string" || !validDateString(item.expiresAt)) {
+      throw new CmsStorageError("CMS authentication document is invalid.");
+    }
+    return { hash: item.hash, expiresAt: item.expiresAt };
+  });
 }
 function validateBootstrapPassword(value) {
   if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_PASSWORD_LENGTH) {
@@ -274,6 +320,8 @@ function parseAuthDocument(value) {
     }
     const username = parseUsername(item.username);
     const name = parseOptionalName(item.name);
+    const googleEmail = parseOptionalGoogleEmail(item.googleEmail);
+    const googleSub = parseOptionalGoogleSub(item.googleSub);
     parsePasswordRecord(item.passwordHash);
     return {
       id,
@@ -288,7 +336,9 @@ function parseAuthDocument(value) {
       createdAt,
       failedAttempts,
       failedWindowStartedAt,
-      lockedUntil
+      lockedUntil,
+      ...googleEmail === void 0 ? {} : { googleEmail },
+      ...googleSub === void 0 ? {} : { googleSub }
     };
   });
   if (accounts.filter((account) => account.role === "owner").length !== 1) {
@@ -296,12 +346,26 @@ function parseAuthDocument(value) {
   }
   const usernames = /* @__PURE__ */ new Set();
   const ids = /* @__PURE__ */ new Set();
+  const googleEmails = /* @__PURE__ */ new Set();
+  const googleSubs = /* @__PURE__ */ new Set();
   for (const account of accounts) {
     if (usernames.has(account.username) || ids.has(account.id)) {
       throw new CmsStorageError("CMS authentication document is invalid.");
     }
     usernames.add(account.username);
     ids.add(account.id);
+    if (account.googleEmail !== void 0) {
+      if (googleEmails.has(account.googleEmail)) {
+        throw new CmsStorageError("CMS authentication document is invalid.");
+      }
+      googleEmails.add(account.googleEmail);
+    }
+    if (account.googleSub !== void 0) {
+      if (googleSubs.has(account.googleSub)) {
+        throw new CmsStorageError("CMS authentication document is invalid.");
+      }
+      googleSubs.add(account.googleSub);
+    }
   }
   const sessions = value.sessions.map((item) => {
     if (!isRecord(item))
@@ -322,7 +386,8 @@ function parseAuthDocument(value) {
     schemaVersion: 1,
     revision: value.revision,
     accounts,
-    sessions
+    sessions,
+    googleChallenges: parseGoogleChallenges(value.googleChallenges)
   };
 }
 function parseBootstrapLimitDocument(value) {
@@ -341,7 +406,8 @@ function createInitialDocument(account) {
     schemaVersion: 1,
     revision: randomUUID(),
     accounts: [account],
-    sessions: []
+    sessions: [],
+    googleChallenges: []
   };
 }
 function toPrincipal(account) {
@@ -362,7 +428,9 @@ function toUserSummary(account) {
     role: account.role,
     enabled: account.enabled,
     mustChangePassword: account.mustChangePassword,
-    createdAt: account.createdAt
+    createdAt: account.createdAt,
+    ...account.googleEmail === void 0 ? {} : { googleEmail: account.googleEmail },
+    googleLinked: account.googleSub !== void 0
   };
 }
 function genericLoginError() {
@@ -410,6 +478,28 @@ function recordIpFailure(ip, now) {
 }
 function clearIpFailures(ip) {
   ipThrottle.delete(throttleKey(ip));
+}
+function genericGoogleLoginError() {
+  return new CmsAuthError(401, "Google sign-in was not accepted.");
+}
+function isAuthoritativeGoogleEmail(email, hd) {
+  const at = email.lastIndexOf("@");
+  if (at < 1 || at === email.length - 1) return false;
+  const domain = email.slice(at + 1).toLowerCase();
+  if (domain === "gmail.com") return true;
+  if (!hd || !/^[a-z0-9.-]{1,255}$/i.test(hd)) return false;
+  return domain === hd.toLowerCase();
+}
+function pruneGoogleChallenges(document, now) {
+  document.googleChallenges = (document.googleChallenges ?? []).filter(
+    (challenge) => Date.parse(challenge.expiresAt) > now
+  );
+}
+function validateGoogleSub(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > CMS_AUTH_MAX_GOOGLE_SUB_LENGTH) {
+    throw genericGoogleLoginError();
+  }
+  return value;
 }
 function accountIsLocked(account, now) {
   return Boolean(account.lockedUntil && Date.parse(account.lockedUntil) > now);
@@ -722,6 +812,106 @@ function createCmsUserStore(client = defaultBlobClient, options = {}) {
       }
       throw new CmsConflictError();
     },
+    async issueGoogleNonce() {
+      const nonce = randomBytes(32).toString("base64url");
+      const challenge = {
+        hash: hashCmsSessionToken(nonce),
+        expiresAt: new Date(Date.now() + CMS_GOOGLE_NONCE_TTL_MS).toISOString()
+      };
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const snapshot = await readSnapshot(client, authPath);
+        if (!snapshot.document) {
+          throw new CmsAuthError(503, "CMS authentication is not initialized.");
+        }
+        const document = cloneDocument(snapshot.document);
+        pruneGoogleChallenges(document, Date.now());
+        if ((document.googleChallenges ?? []).length >= CMS_AUTH_MAX_GOOGLE_CHALLENGES) {
+          throw new CmsConflictError(
+            "Too many pending Google sign-in attempts; try again shortly."
+          );
+        }
+        document.googleChallenges = [
+          ...document.googleChallenges ?? [],
+          challenge
+        ];
+        document.revision = randomUUID();
+        try {
+          await writeSnapshot(client, authPath, snapshot, document);
+          return nonce;
+        } catch (error) {
+          if (!(error instanceof CmsConflictError)) throw error;
+          if (attempt === 4) throw error;
+        }
+      }
+      throw new CmsConflictError();
+    },
+    async loginWithGoogle(input) {
+      if (typeof input.nonce !== "string" || input.nonce.length < 20) {
+        throw genericGoogleLoginError();
+      }
+      const sub = validateGoogleSub(input.sub);
+      if (input.emailVerified !== true) throw genericGoogleLoginError();
+      let email;
+      try {
+        const normalized = normalizeCmsGoogleEmail(input.email);
+        if (!normalized) throw new Error("missing email");
+        email = normalized;
+      } catch {
+        throw genericGoogleLoginError();
+      }
+      const hd = input.hd === void 0 ? void 0 : typeof input.hd === "string" && input.hd.length <= 255 ? input.hd : (() => {
+        throw genericGoogleLoginError();
+      })();
+      const nonceHash = hashCmsSessionToken(input.nonce);
+      const now = Date.now();
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const snapshot = await readSnapshot(client, authPath);
+        if (!snapshot.document) throw genericGoogleLoginError();
+        const pending = (snapshot.document.googleChallenges ?? []).find(
+          (challenge) => challenge.hash === nonceHash && Date.parse(challenge.expiresAt) > now
+        );
+        if (!pending) throw genericGoogleLoginError();
+        const accountBySub = snapshot.document.accounts.find(
+          (account2) => account2.googleSub === sub
+        );
+        let account = accountBySub;
+        let shouldPin = false;
+        if (!accountBySub) {
+          account = snapshot.document.accounts.find(
+            (candidate) => candidate.googleEmail === email
+          );
+          if (!account || !account.enabled || account.removed || account.googleSub !== void 0 || !isAuthoritativeGoogleEmail(email, hd)) {
+            throw genericGoogleLoginError();
+          }
+          shouldPin = true;
+        }
+        if (!account || !account.enabled || account.removed) {
+          throw genericGoogleLoginError();
+        }
+        const document = cloneDocument(snapshot.document);
+        const current = findAccountById(document, account.id);
+        if (!current || !current.enabled || current.removed) {
+          throw genericGoogleLoginError();
+        }
+        const challengeIndex = (document.googleChallenges ?? []).findIndex(
+          (challenge) => challenge.hash === nonceHash && Date.parse(challenge.expiresAt) > now
+        );
+        if (challengeIndex < 0) throw genericGoogleLoginError();
+        document.googleChallenges?.splice(challengeIndex, 1);
+        if (shouldPin) current.googleSub = sub;
+        cleanupSessions(document, now);
+        const token = createSession(document, current, now);
+        document.revision = randomUUID();
+        try {
+          await writeSnapshot(client, authPath, snapshot, document);
+          return { principal: toPrincipal(current), sessionToken: token };
+        } catch (error) {
+          if (!(error instanceof CmsConflictError) || attempt === 1)
+            throw error;
+        }
+      }
+      throw new CmsConflictError();
+    },
     async authenticateSession(token) {
       if (typeof token !== "string" || token.length < 20 || token.length > 200) {
         throw genericSessionError();
@@ -898,6 +1088,42 @@ function createCmsUserStore(client = defaultBlobClient, options = {}) {
         users: document.accounts.map(toUserSummary),
         revision: document.revision
       };
+    },
+    async setGoogleEmail(input) {
+      const id = typeof input.id === "string" && input.id.length <= 100 ? input.id : "";
+      if (!id) throw new CmsValidationError("User id is required.");
+      const email = normalizeCmsGoogleEmail(input.email);
+      const revision = validateRevision(input.revision);
+      const snapshot = await readSnapshot(client, authPath);
+      if (!snapshot.document) throw new CmsStorageError();
+      assertRevision(snapshot.document, revision);
+      const existing = findAccountById(snapshot.document, id);
+      if (!existing) throw new CmsValidationError("User not found.");
+      if (email !== null && snapshot.document.accounts.some(
+        (account2) => account2.id !== id && account2.googleEmail === email
+      )) {
+        throw new CmsConflictError("That Google email is already authorized.");
+      }
+      const document = cloneDocument(snapshot.document);
+      const account = findAccountById(document, id);
+      if (!account) throw new CmsValidationError("User not found.");
+      const previousEmail = account.googleEmail;
+      const hadGoogleIdentity = account.googleSub !== void 0;
+      if (email === null) delete account.googleEmail;
+      else account.googleEmail = email;
+      delete account.googleSub;
+      if (hadGoogleIdentity || previousEmail !== void 0 && previousEmail !== email) {
+        account.sessionVersion += 1;
+        document.sessions = document.sessions.filter(
+          (session) => session.accountId !== account.id
+        );
+      }
+      document.revision = randomUUID();
+      await writeSnapshot(client, authPath, snapshot, document);
+      return {
+        users: document.accounts.map(toUserSummary),
+        revision: document.revision
+      };
     }
   };
   return store;
@@ -905,6 +1131,21 @@ function createCmsUserStore(client = defaultBlobClient, options = {}) {
 
 // server/cms/auth.ts
 var CMS_SESSION_COOKIE = CMS_AUTH_COOKIE;
+var CMS_GOOGLE_NONCE_COOKIE = "solution_cms_google_nonce";
+var CMS_GOOGLE_NONCE_COOKIE_TTL_SECONDS = 5 * 60;
+var CMS_GOOGLE_FLOW_LIMIT = 10;
+function googleNonceCookieName(flowId) {
+  return /^[a-f0-9]{32}$/.test(flowId) ? `${CMS_GOOGLE_NONCE_COOKIE}_${flowId}` : null;
+}
+function assertCmsGoogleFlowCapacity(req) {
+  const cookies = parseCookie(getHeader(req, "cookie") ?? "");
+  const activeFlowCount = Object.keys(cookies).filter(
+    (name) => name.startsWith(`${CMS_GOOGLE_NONCE_COOKIE}_`)
+  ).length;
+  if (activeFlowCount >= CMS_GOOGLE_FLOW_LIMIT) {
+    throw new CmsConflictError("Too many active Google sign-in flows.");
+  }
+}
 function asCmsAdminUser(principal) {
   return principal;
 }
@@ -945,6 +1186,43 @@ function serializeCmsCookie(token, security, maxAge) {
     `SameSite=${security.sameSite === "none" ? "None" : "Lax"}`,
     ...security.secure ? ["Secure"] : []
   ].join("; ");
+}
+function serializeGoogleNonceCookie(nonce, flowId, security, maxAge) {
+  const cookieName = googleNonceCookieName(flowId);
+  if (!cookieName) throw new CmsAuthError(403, "Invalid Google sign-in flow.");
+  return [
+    `${cookieName}=${encodeURIComponent(nonce)}`,
+    `Max-Age=${maxAge}`,
+    "Path=/api/cms",
+    "HttpOnly",
+    `SameSite=${security.sameSite === "none" ? "None" : "Lax"}`,
+    ...security.secure ? ["Secure"] : []
+  ].join("; ");
+}
+function getCmsGoogleNonce(req, flowId) {
+  const cookieName = googleNonceCookieName(flowId);
+  if (!cookieName) return null;
+  const header = getHeader(req, "cookie");
+  if (!header) return null;
+  const cookies = parseCookie(header);
+  const nonce = cookies[cookieName];
+  return nonce && nonce.length >= 20 && nonce.length <= 200 ? nonce : null;
+}
+function setCmsGoogleNonceCookie(res, req, nonce, flowId) {
+  const security = cookieSecurityForOrigin(req);
+  res.append(
+    "Set-Cookie",
+    serializeGoogleNonceCookie(
+      nonce,
+      flowId,
+      security,
+      CMS_GOOGLE_NONCE_COOKIE_TTL_SECONDS
+    )
+  );
+}
+function clearCmsGoogleNonceCookie(res, req, flowId) {
+  const security = cookieSecurityForOrigin(req);
+  res.append("Set-Cookie", serializeGoogleNonceCookie("", flowId, security, 0));
 }
 function setCmsSessionCookie(res, req, token) {
   const security = cookieSecurityForOrigin(req);
@@ -1951,6 +2229,88 @@ function createCmsStore(client = defaultBlobClient2, options = {}) {
   };
 }
 
+// server/cms/googleAuth.ts
+import { createRemoteJWKSet, jwtVerify } from "jose";
+var GOOGLE_JWK_URL = "https://www.googleapis.com/oauth2/v3/certs";
+var GOOGLE_ISSUERS = [
+  "https://accounts.google.com",
+  "accounts.google.com"
+];
+var GOOGLE_EMAIL_PATTERN2 = /^[^\s@]+@[^\s@]+$/;
+var GOOGLE_JWKS = createRemoteJWKSet(new URL(GOOGLE_JWK_URL));
+function invalidGoogleToken() {
+  return new CmsAuthError(401, "Google sign-in was not accepted.");
+}
+function getCmsGoogleClientId(value = process.env.CMS_GOOGLE_CLIENT_ID) {
+  if (typeof value !== "string") return null;
+  const clientId = value.trim();
+  if (clientId.length === 0 || clientId.length > 512) return null;
+  if (!/^[A-Za-z0-9_.-]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+    return null;
+  }
+  return clientId;
+}
+function createGoogleIdTokenVerifier(options = {}) {
+  const jwks = options.jwks ?? GOOGLE_JWKS;
+  return async (credential, expectedNonce, clientId) => {
+    if (typeof credential !== "string" || credential.length === 0 || credential.length > 16384 || typeof expectedNonce !== "string" || expectedNonce.length < 20 || typeof clientId !== "string" || clientId.length === 0) {
+      throw invalidGoogleToken();
+    }
+    let payload;
+    try {
+      const result = await jwtVerify(credential, jwks, {
+        algorithms: ["RS256"],
+        issuer: [...GOOGLE_ISSUERS],
+        audience: clientId,
+        requiredClaims: [
+          "iss",
+          "aud",
+          "exp",
+          "iat",
+          "sub",
+          "email",
+          "email_verified",
+          "nonce"
+        ]
+      });
+      payload = result.payload;
+    } catch {
+      throw invalidGoogleToken();
+    }
+    const now = Math.floor(Date.now() / 1e3);
+    if (typeof payload.iat !== "number" || !Number.isSafeInteger(payload.iat) || payload.iat > now + 60 || typeof payload.exp !== "number" || !Number.isSafeInteger(payload.exp) || payload.exp <= now) {
+      throw invalidGoogleToken();
+    }
+    if (payload.nonce !== expectedNonce) throw invalidGoogleToken();
+    if (payload.email_verified !== true) throw invalidGoogleToken();
+    if (typeof payload.sub !== "string" || payload.sub.length === 0 || payload.sub.length > CMS_AUTH_MAX_GOOGLE_SUB_LENGTH) {
+      throw invalidGoogleToken();
+    }
+    if (typeof payload.email !== "string" || payload.email.length > CMS_AUTH_MAX_GOOGLE_EMAIL_LENGTH) {
+      throw invalidGoogleToken();
+    }
+    const email = payload.email.trim().toLowerCase();
+    if (email.length === 0 || email.length > CMS_AUTH_MAX_GOOGLE_EMAIL_LENGTH || !GOOGLE_EMAIL_PATTERN2.test(email)) {
+      throw invalidGoogleToken();
+    }
+    let hd;
+    if (payload.hd !== void 0) {
+      if (typeof payload.hd !== "string" || payload.hd.length === 0 || payload.hd.length > 255) {
+        throw invalidGoogleToken();
+      }
+      hd = payload.hd.toLowerCase();
+    }
+    return {
+      sub: payload.sub,
+      email,
+      emailVerified: true,
+      ...hd === void 0 ? {} : { hd },
+      nonce: expectedNonce
+    };
+  };
+}
+var verifyGoogleIdToken = createGoogleIdTokenVerifier();
+
 // server/cms/routes.ts
 var CMS_PREFIX = "/api/cms";
 var CMS_WRITE_HEADER = "X-Solution-CMS";
@@ -2117,12 +2477,17 @@ var NO_STORE_ROUTES = /* @__PURE__ */ new Set([
   "logout",
   "password",
   "users",
-  "admin"
+  "admin",
+  "google/config",
+  "google/nonce",
+  "google/login",
+  "users/google"
 ]);
 function registerCmsRoutes(app, options = {}) {
   const store = options.store ?? createCmsStore();
   const userStore = options.userStore ?? createCmsUserStore();
   const authenticateAdmin = options.authenticateAdmin ?? ((req) => authenticateCmsAdmin(req, userStore));
+  const googleVerifier = options.googleVerifier ?? createGoogleIdTokenVerifier();
   const now = options.now ?? (() => /* @__PURE__ */ new Date());
   const handle = async (req, res) => {
     const route = getCmsPath(req);
@@ -2136,6 +2501,11 @@ function registerCmsRoutes(app, options = {}) {
       return;
     }
     try {
+      if (req.method === "GET" && route === "google/config") {
+        const clientId = getCmsGoogleClientId();
+        res.json({ clientId, configured: clientId !== null });
+        return;
+      }
       if (req.method === "GET" && route === "status") {
         res.json({ configured: store.configured });
         return;
@@ -2171,6 +2541,47 @@ function registerCmsRoutes(app, options = {}) {
       if (req.method === "GET" && route === "session") {
         const user = await authenticate(req, authenticateAdmin);
         res.json({ user: publicCmsUser(user) });
+        return;
+      }
+      if (req.method === "POST" && route === "google/nonce") {
+        assertTrustedWrite(req);
+        if (!getCmsGoogleClientId()) {
+          throw new CmsAuthError(503, "Google sign-in is not configured.");
+        }
+        assertCmsGoogleFlowCapacity(req);
+        const flowId = crypto.randomUUID().replace(/-/g, "");
+        const nonce = await userStore.issueGoogleNonce();
+        setCmsGoogleNonceCookie(res, req, nonce, flowId);
+        res.json({ nonce, flowId });
+        return;
+      }
+      if (req.method === "POST" && route === "google/login") {
+        assertTrustedWrite(req);
+        const clientId = getCmsGoogleClientId();
+        if (!clientId) {
+          throw new CmsAuthError(503, "Google sign-in is not configured.");
+        }
+        const body = bodyRecord(req.body);
+        const flowId = requiredString(body, "flowId");
+        const nonce = getCmsGoogleNonce(req, flowId);
+        if (!nonce) {
+          throw new CmsAuthError(401, "Google sign-in session expired.");
+        }
+        const credential = requiredString(body, "credential");
+        let claims;
+        try {
+          claims = await googleVerifier(credential, nonce, clientId);
+        } catch (error) {
+          if (error instanceof CmsHttpError) throw error;
+          throw new CmsAuthError(401, "Google sign-in was not accepted.");
+        }
+        const result = await userStore.loginWithGoogle({
+          ...claims,
+          nonce
+        });
+        setCmsSessionCookie(res, req, result.sessionToken);
+        clearCmsGoogleNonceCookie(res, req, flowId);
+        res.json({ user: publicCmsUser(result.principal) });
         return;
       }
       if (req.method === "POST" && route === "login") {
@@ -2211,6 +2622,24 @@ function registerCmsRoutes(app, options = {}) {
         );
         setCmsSessionCookie(res, req, result.sessionToken);
         res.json({ user: publicCmsUser(result.principal) });
+        return;
+      }
+      if (route === "users/google" && req.method === "PUT") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        if (!Object.prototype.hasOwnProperty.call(body, "email")) {
+          throw new CmsValidationError("email is required.");
+        }
+        const email = normalizeCmsGoogleEmail(body.email);
+        const result = await userStore.setGoogleEmail({
+          id: requiredString(body, "id"),
+          email,
+          revision: requiredString(body, "revision")
+        });
+        res.json(result);
         return;
       }
       if (req.method === "GET" && route === "users") {

@@ -1,8 +1,12 @@
 import express, { type Express, type Request, type Response } from "express";
 import {
+  assertCmsGoogleFlowCapacity,
   authenticateCmsAdmin,
   clearCmsSessionCookie,
+  clearCmsGoogleNonceCookie,
+  getCmsGoogleNonce,
   getCmsSessionToken,
+  setCmsGoogleNonceCookie,
   setCmsSessionCookie,
   type CmsAdminUser,
   type CmsAuthenticator,
@@ -32,9 +36,15 @@ import {
 } from "./store";
 import {
   createCmsUserStore,
+  normalizeCmsGoogleEmail,
   validateCmsPassword,
   type CmsUserStore,
 } from "./userStore";
+import {
+  createGoogleIdTokenVerifier,
+  getCmsGoogleClientId,
+  type CmsGoogleTokenVerifier,
+} from "./googleAuth";
 import {
   validateSiteContent,
   type SiteContent,
@@ -47,6 +57,7 @@ export type CmsRouteOptions = {
   store?: CmsStore;
   userStore?: CmsUserStore;
   authenticateAdmin?: CmsAuthenticator;
+  googleVerifier?: CmsGoogleTokenVerifier;
   now?: () => Date;
 };
 
@@ -269,6 +280,10 @@ const NO_STORE_ROUTES = new Set([
   "password",
   "users",
   "admin",
+  "google/config",
+  "google/nonce",
+  "google/login",
+  "users/google",
 ]);
 
 export function registerCmsRoutes(
@@ -280,6 +295,8 @@ export function registerCmsRoutes(
   const authenticateAdmin =
     options.authenticateAdmin ??
     ((req: Request) => authenticateCmsAdmin(req, userStore));
+  const googleVerifier =
+    options.googleVerifier ?? createGoogleIdTokenVerifier();
   const now = options.now ?? (() => new Date());
 
   const handle = async (req: Request, res: Response): Promise<void> => {
@@ -299,6 +316,12 @@ export function registerCmsRoutes(
     }
 
     try {
+      if (req.method === "GET" && route === "google/config") {
+        const clientId = getCmsGoogleClientId();
+        res.json({ clientId, configured: clientId !== null });
+        return;
+      }
+
       if (req.method === "GET" && route === "status") {
         res.json({ configured: store.configured });
         return;
@@ -337,6 +360,49 @@ export function registerCmsRoutes(
       if (req.method === "GET" && route === "session") {
         const user = await authenticate(req, authenticateAdmin);
         res.json({ user: publicCmsUser(user) });
+        return;
+      }
+
+      if (req.method === "POST" && route === "google/nonce") {
+        assertTrustedWrite(req);
+        if (!getCmsGoogleClientId()) {
+          throw new CmsAuthError(503, "Google sign-in is not configured.");
+        }
+        assertCmsGoogleFlowCapacity(req);
+        const flowId = crypto.randomUUID().replace(/-/g, "");
+        const nonce = await userStore.issueGoogleNonce();
+        setCmsGoogleNonceCookie(res, req, nonce, flowId);
+        res.json({ nonce, flowId });
+        return;
+      }
+
+      if (req.method === "POST" && route === "google/login") {
+        assertTrustedWrite(req);
+        const clientId = getCmsGoogleClientId();
+        if (!clientId) {
+          throw new CmsAuthError(503, "Google sign-in is not configured.");
+        }
+        const body = bodyRecord(req.body);
+        const flowId = requiredString(body, "flowId");
+        const nonce = getCmsGoogleNonce(req, flowId);
+        if (!nonce) {
+          throw new CmsAuthError(401, "Google sign-in session expired.");
+        }
+        const credential = requiredString(body, "credential");
+        let claims;
+        try {
+          claims = await googleVerifier(credential, nonce, clientId);
+        } catch (error) {
+          if (error instanceof CmsHttpError) throw error;
+          throw new CmsAuthError(401, "Google sign-in was not accepted.");
+        }
+        const result = await userStore.loginWithGoogle({
+          ...claims,
+          nonce,
+        });
+        setCmsSessionCookie(res, req, result.sessionToken);
+        clearCmsGoogleNonceCookie(res, req, flowId);
+        res.json({ user: publicCmsUser(result.principal) });
         return;
       }
 
@@ -380,6 +446,25 @@ export function registerCmsRoutes(
         );
         setCmsSessionCookie(res, req, result.sessionToken);
         res.json({ user: publicCmsUser(result.principal) });
+        return;
+      }
+
+      if (route === "users/google" && req.method === "PUT") {
+        assertTrustedWrite(req);
+        const user = await authenticate(req, authenticateAdmin);
+        assertContentAccess(user);
+        assertOwner(user);
+        const body = bodyRecord(req.body);
+        if (!Object.prototype.hasOwnProperty.call(body, "email")) {
+          throw new CmsValidationError("email is required.");
+        }
+        const email = normalizeCmsGoogleEmail(body.email);
+        const result = await userStore.setGoogleEmail({
+          id: requiredString(body, "id"),
+          email,
+          revision: requiredString(body, "revision"),
+        });
+        res.json(result);
         return;
       }
 

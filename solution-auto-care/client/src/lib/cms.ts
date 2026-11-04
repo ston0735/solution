@@ -18,6 +18,8 @@ export type CmsSessionResponse = {
 export type CmsUserRecord = CmsPrincipal & {
   enabled: boolean;
   createdAt: string;
+  googleEmail?: string;
+  googleLinked?: boolean;
 };
 
 export type CmsUsersResponse = {
@@ -36,6 +38,16 @@ export type CmsAdminSnapshot = {
 export type CmsUploadResult = {
   url: string;
   filename: string;
+};
+
+export type CmsGoogleConfig = {
+  configured: boolean;
+  clientId: string | null;
+};
+
+export type CmsGoogleNonceResponse = {
+  nonce: string;
+  flowId: string;
 };
 
 export class CmsApiError extends Error {
@@ -129,6 +141,29 @@ export function loginCms(username: string, password: string) {
   );
 }
 
+export function getCmsGoogleConfig() {
+  return request<CmsGoogleConfig>("/api/cms/google/config");
+}
+
+export function requestCmsGoogleNonce() {
+  return request<CmsGoogleNonceResponse>(
+    "/api/cms/google/nonce",
+    { method: "POST", body: JSON.stringify({}) },
+    true
+  );
+}
+
+export function loginCmsWithGoogle(credential: string, flowId: string) {
+  return request<CmsSessionResponse>(
+    "/api/cms/google/login",
+    {
+      method: "POST",
+      body: JSON.stringify({ credential, flowId }),
+    },
+    true
+  );
+}
+
 export function logoutCms() {
   return request<{ ok: true }>(
     "/api/cms/logout",
@@ -176,6 +211,21 @@ export function setCmsUserEnabled(
   return request<unknown>(
     "/api/cms/users",
     { method: "PUT", body: JSON.stringify({ id, enabled, revision }) },
+    true
+  );
+}
+
+export function setCmsUserGoogleEmail(
+  id: CmsUserId,
+  email: string | null,
+  revision: string
+) {
+  return request<CmsUsersResponse>(
+    "/api/cms/users/google",
+    {
+      method: "PUT",
+      body: JSON.stringify({ id, email, revision }),
+    },
     true
   );
 }

@@ -2,10 +2,12 @@ import {
   changeCmsPassword,
   CmsApiError,
   loginCms,
+  loginCmsWithGoogle,
   logoutCms,
   getCmsSession,
   type CmsPrincipal,
 } from "@/lib/cms";
+import CmsGoogleSignIn from "@/components/CmsGoogleSignIn";
 import { validateCmsPasswordChange } from "@/lib/cmsPassword";
 import {
   createContext,
@@ -33,6 +35,10 @@ type CmsAuthContextValue = {
   loading: boolean;
   sessionLoading: boolean;
   login: (username: string, password: string) => Promise<CmsPrincipal>;
+  loginWithGoogle: (
+    credential: string,
+    flowId: string
+  ) => Promise<CmsPrincipal>;
   logout: () => Promise<void>;
   changePassword: (
     currentPassword: string,
@@ -45,10 +51,16 @@ const CmsAuthContext = createContext<CmsAuthContextValue | undefined>(
   undefined
 );
 
-function authErrorMessage(error: unknown, action: "login" | "password") {
+function authErrorMessage(
+  error: unknown,
+  action: "login" | "google" | "password"
+) {
   if (error instanceof CmsApiError) {
     if (error.status === 0) return "目前無法連線到 CMS，請確認網路後再試。";
     if (error.status === 401 || error.status === 403) {
+      if (action === "google") {
+        return "此 Google 帳號尚未獲主權限核准，或 Google 登入狀態已失效。請使用已核准的 Google 帳號，或改用 CMS 帳密登入。";
+      }
       return action === "login"
         ? "帳戶名稱或密碼錯誤，請再試一次。"
         : "目前密碼不正確，或登入狀態已失效。請重新登入後再試。";
@@ -56,8 +68,13 @@ function authErrorMessage(error: unknown, action: "login" | "password") {
     if (error.status === 422 || error.status === 400) {
       return action === "password"
         ? "新密碼未通過安全規則，請確認至少 12 個字元且不與目前密碼相同。"
-        : "登入資料格式不正確，請再試一次。";
+        : action === "google"
+          ? "Google 登入資料無法驗證，請關閉目前的 Google 選擇視窗後重試。"
+          : "登入資料格式不正確，請再試一次。";
     }
+  }
+  if (action === "google") {
+    return "Google 登入目前無法完成，請稍後再試；也可以改用 CMS 帳密登入。";
   }
   return action === "login"
     ? "目前無法登入 CMS，請稍後再試。"
@@ -113,6 +130,23 @@ export function CmsAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(
+    async (credential: string, flowId: string) => {
+      setActionLoading(true);
+      try {
+        const response = await loginCmsWithGoogle(credential, flowId);
+        setUser(response.user);
+        return response.user;
+      } catch (error) {
+        setUser(null);
+        throw new Error(authErrorMessage(error, "google"));
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
     setActionLoading(true);
     try {
@@ -157,6 +191,7 @@ export function CmsAuthProvider({ children }: { children: ReactNode }) {
       loading: sessionLoading || actionLoading,
       sessionLoading,
       login,
+      loginWithGoogle,
       logout,
       changePassword,
       clearSession,
@@ -166,6 +201,7 @@ export function CmsAuthProvider({ children }: { children: ReactNode }) {
       changePassword,
       clearSession,
       login,
+      loginWithGoogle,
       logout,
       sessionLoading,
       user,
@@ -229,7 +265,7 @@ function LoadingState() {
 }
 
 function LoginForm() {
-  const { login, loading, sessionLoading } = useCmsAuth();
+  const { login, loginWithGoogle, loading, sessionLoading } = useCmsAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -318,6 +354,7 @@ function LoginForm() {
           {disabled ? "登入中…" : "登入 CMS"}
         </button>
       </form>
+      <CmsGoogleSignIn onCredential={loginWithGoogle} />
     </>
   );
 }
