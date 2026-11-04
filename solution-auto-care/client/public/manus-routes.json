@@ -1,7 +1,16 @@
 {
   "routes": [
-    { "path": "/", "title": "Solution｜汽車包膜、透明保護膜與 AI 車色預覽" },
+    { "path": "/", "title": "Solution 汽車包膜與美容" },
+    { "path": "/services", "title": "服務項目" },
+    { "path": "/ai-color", "title": "AI車色" },
+    { "path": "/process", "title": "施工流程" },
+    { "path": "/blog", "title": "Blog/改裝案例" },
+    { "path": "/blog/:slug", "title": "Blog 文章與改裝案例" },
+    { "path": "/about", "title": "關於Solution" },
+    { "path": "/contact", "title": "預約諮詢" },
     { "path": "/member", "title": "Solution 會員專區" },
-    { "path": "/admin/members", "title": "Solution CRM｜會員管理" }
+    { "path": "/member/vehicle-studio", "title": "360° 車輛工作室" },
+    { "path": "/admin/members", "title": "Solution CRM 會員管理" },
+    { "path": "/admin/content", "title": "Solution 網站內容管理" }
   ]
 }

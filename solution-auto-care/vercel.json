@@ -29,6 +29,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/cms",
+      "destination": "/api/cms?path="
+    },
+    {
+      "source": "/api/cms/:path*",
+      "destination": "/api/cms?path=:path*"
+    },
+    {
       "source": "/api/oauth/:path*",
       "destination": "https://solutionauth-zcgxwa4c.manus.space/api/oauth/:path*"
     },
@@ -74,6 +82,38 @@
     },
     {
       "source": "/admin/members",
+      "destination": "/"
+    },
+    {
+      "source": "/admin/content",
+      "destination": "/"
+    },
+    {
+      "source": "/services",
+      "destination": "/"
+    },
+    {
+      "source": "/ai-color",
+      "destination": "/"
+    },
+    {
+      "source": "/process",
+      "destination": "/"
+    },
+    {
+      "source": "/blog",
+      "destination": "/"
+    },
+    {
+      "source": "/blog/:slug",
+      "destination": "/"
+    },
+    {
+      "source": "/about",
+      "destination": "/"
+    },
+    {
+      "source": "/contact",
       "destination": "/"
     }
   ]

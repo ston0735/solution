@@ -146,7 +146,7 @@ export default function MemberVehicleStudio() {
   return (
     <VehicleStudioWorkspace
       name={user?.name?.trim() || "Solution 會員"}
-      email={user?.email}
+      email={user?.email ?? undefined}
       onLogout={() => void logout()}
     />
   );

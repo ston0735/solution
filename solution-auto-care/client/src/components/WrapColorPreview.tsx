@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import ABCompare from "@/components/ABCompare";
 import { trpc } from "@/lib/trpc";
+import { useSiteContent } from "@/contexts/SiteContentContext";
 import {
   createMemberPreviewHistory,
   saveMemberPreviewHistory,
@@ -60,20 +61,21 @@ function getAspectRatioLabel({ width, height }: ImageDimensions) {
   return `${width / divisor}:${height / divisor}`;
 }
 
-async function loadImage(source: string) {
+async function loadImage(source: string, errorMessage: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("預覽圖片讀取失敗"));
+    image.onerror = () => reject(new Error(errorMessage));
     image.src = source;
   });
 }
 
 async function cropPreviewToSourceAspectRatio(
   previewUrl: string,
-  source: ImageDimensions
+  source: ImageDimensions,
+  messages: { loadError: string; convertError: string }
 ) {
-  const preview = await loadImage(previewUrl);
+  const preview = await loadImage(previewUrl, messages.loadError);
   const targetAspectRatio = source.width / source.height;
   const previewAspectRatio = preview.naturalWidth / preview.naturalHeight;
   const cropWidth =
@@ -90,7 +92,7 @@ async function cropPreviewToSourceAspectRatio(
   canvas.width = Math.round(cropWidth);
   canvas.height = Math.round(cropHeight);
   const context = canvas.getContext("2d");
-  if (!context) throw new Error("預覽圖片無法轉換");
+  if (!context) throw new Error(messages.convertError);
 
   context.drawImage(
     preview,
@@ -107,7 +109,7 @@ async function cropPreviewToSourceAspectRatio(
   const blob = await new Promise<Blob | null>(resolve =>
     canvas.toBlob(resolve, "image/png")
   );
-  if (!blob) throw new Error("預覽圖片無法轉換");
+  if (!blob) throw new Error(messages.convertError);
   return {
     previewUrl: URL.createObjectURL(blob),
     outputSize: `${canvas.width}x${canvas.height}`,
@@ -116,6 +118,7 @@ async function cropPreviewToSourceAspectRatio(
 
 export default function WrapColorPreview() {
   const { isAuthenticated } = useAuth();
+  const { text, image } = useSiteContent();
   const fileInputId = useId();
   const categories = useMemo(
     () => Array.from(new Set(WRAP_COLOR_CATALOG.map(color => color.category))),
@@ -209,7 +212,11 @@ export default function WrapColorPreview() {
         try {
           const normalized = await cropPreviewToSourceAspectRatio(
             result.previewUrl,
-            sourceDimensions
+            sourceDimensions,
+            {
+              loadError: text("ai.error.previewLoad"),
+              convertError: text("ai.error.previewConvert"),
+            }
           );
           previewUrl = normalized.previewUrl;
           outputSize = normalized.outputSize;
@@ -243,23 +250,27 @@ export default function WrapColorPreview() {
           setHistoryIsSaved(historyResponse.item.isSaved);
           historySaved = true;
         } catch (error) {
-          toast.warning("預覽已完成，但歷史紀錄暫時無法保存", {
+          toast.warning(text("ai.toast.historySaveWarning"), {
             description:
-              error instanceof Error ? error.message : "請稍後到會員專區重試。",
+              error instanceof Error
+                ? error.message
+                : text("ai.toast.historySaveWarningDescription"),
           });
         }
       }
-      toast.success("預覽已生成", {
+      toast.success(text("ai.toast.generateSuccess"), {
         description: historySaved
-          ? `${result.pantoneId} 的包膜概念預覽已完成，已暫存 3 天。`
+          ? `${result.pantoneId}${text("ai.toast.previewSavedDescription")}`
           : isAuthenticated
-            ? `${result.pantoneId} 的包膜概念預覽已完成。`
-            : "登入會員後，完成的預覽才會自動保存。",
+            ? `${result.pantoneId}${text("ai.toast.previewDescription")}`
+            : text("ai.toast.loginSaveDescription"),
       });
     },
     onError: error => {
       setInputError(error.message);
-      toast.error("無法生成預覽", { description: error.message });
+      toast.error(text("ai.toast.generateFailed"), {
+        description: error.message,
+      });
     },
   });
 
@@ -340,31 +351,31 @@ export default function WrapColorPreview() {
       !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
       file.size > MAX_FILE_BYTES
     ) {
-      setInputError("請上傳小於 6MB 的 JPG、PNG 或 WEBP 車輛照片。");
+      setInputError(text("ai.error.fileType"));
       event.target.value = "";
       return;
     }
 
     const reader = new FileReader();
-    reader.onerror = () => setInputError("照片讀取失敗，請重新選擇檔案。");
+    reader.onerror = () => setInputError(text("ai.error.fileRead"));
     reader.onload = () => {
       const dataUrl = String(reader.result ?? "");
       const separatorIndex = dataUrl.indexOf(",");
       if (separatorIndex === -1) {
-        setInputError("照片格式無法辨識，請重新上傳。");
+        setInputError(text("ai.error.fileFormat"));
         return;
       }
       setSourcePreview(dataUrl);
       setImageBase64(dataUrl.slice(separatorIndex + 1));
       setFileName(file.name);
-      void loadImage(dataUrl)
+      void loadImage(dataUrl, text("ai.error.fileRead"))
         .then(image =>
           setSourceDimensions({
             width: image.naturalWidth,
             height: image.naturalHeight,
           })
         )
-        .catch(() => setInputError("無法辨識照片尺寸，請重新選擇檔案。"));
+        .catch(() => setInputError(text("ai.error.dimensions")));
     };
     reader.readAsDataURL(file);
   };
@@ -402,11 +413,11 @@ export default function WrapColorPreview() {
     event.preventDefault();
     setInputError("");
     if (!imageBase64) {
-      setInputError("請先上傳一張清楚、可看到完整車身的愛車照片。");
+      setInputError(text("ai.error.photoRequired"));
       return;
     }
     if (!targetColorId) {
-      setInputError("請從型錄選擇一個色號，或輸入自訂色號。");
+      setInputError(text("ai.error.colorRequired"));
       return;
     }
     generatePreview.mutate(getGenerationInput());
@@ -414,8 +425,8 @@ export default function WrapColorPreview() {
 
   const handleSavePreview = async () => {
     if (!isAuthenticated) {
-      toast.info("請先登入會員", {
-        description: "登入後才能將圖片保存 30 天。",
+      toast.info(text("ai.auth.loginRequired"), {
+        description: text("ai.auth.loginRequiredDescription"),
       });
       return;
     }
@@ -425,11 +436,11 @@ export default function WrapColorPreview() {
     try {
       const response = await saveMemberPreviewHistory(historyId);
       setHistoryIsSaved(response.item.isSaved);
-      toast.success("圖片已保存 30 天", {
-        description: "你可以在會員專區的預覽歷史中查看。",
+      toast.success(text("ai.toast.saved"), {
+        description: text("ai.toast.savedDescription"),
       });
     } catch (error) {
-      toast.error("圖片保存失敗", {
+      toast.error(text("ai.toast.saveFailed"), {
         description: error instanceof Error ? error.message : "請稍後再試。",
       });
     } finally {
@@ -445,7 +456,7 @@ export default function WrapColorPreview() {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    toast.success("下載已開始");
+    toast.success(text("ai.toast.downloadStarted"));
   };
 
   const isGenerating = generatePreview.isPending;
@@ -459,20 +470,19 @@ export default function WrapColorPreview() {
       <div data-reveal className="relative mx-auto max-w-[1600px]">
         <div className="grid gap-8 border-b border-white/15 pb-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-end">
           <div>
-            <p className="eyebrow">WRAP COLOR LAB / 01</p>
+            <p className="eyebrow">{text("ai.eyebrow")}</p>
             <p className="mt-5 max-w-xs text-sm leading-7 text-white/55">
-              上傳實車照片，從 KSG
-              型錄選擇色系與色號，先在線上檢視改色包膜的概念方向。
+              {text("ai.intro")}
             </p>
           </div>
           <div>
             <h2 className="font-display text-[clamp(3rem,6.6vw,7.45rem)] font-medium uppercase leading-[0.79] tracking-[-0.05em] text-[#f5f6f0]">
-              COLOR,
+              {text("ai.titleLine1")}
               <br />
-              <span className="text-[#a9ff44]">SIMULATED.</span>
+              <span className="text-[#a9ff44]">{text("ai.titleLine2")}</span>
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-7 text-white/70">
-              線上客製化包膜車色預覽，讓你的愛車在正式施工前，先看見下一種表面狀態。
+              {text("ai.description")}
             </p>
           </div>
         </div>
@@ -483,8 +493,8 @@ export default function WrapColorPreview() {
             className="border border-white/15 bg-black/20 p-5 sm:p-7"
           >
             <div className="flex items-center justify-between border-b border-white/12 pb-4 text-[0.62rem] font-semibold tracking-[0.17em] text-white/46">
-              <span>INPUT MODULE</span>
-              <span>01—02</span>
+              <span>{text("ai.inputModuleLabel")}</span>
+              <span>{text("ai.inputModuleStep")}</span>
             </div>
 
             <div className="mt-7">
@@ -492,7 +502,7 @@ export default function WrapColorPreview() {
                 htmlFor={fileInputId}
                 className="mb-3 block text-xs font-bold tracking-[0.12em] text-white/86"
               >
-                01／上傳愛車照片
+                {text("ai.photo.stepLabel")}
               </label>
               {!sourcePreview ? (
                 <label
@@ -505,19 +515,17 @@ export default function WrapColorPreview() {
                     className="text-[#a9ff44]"
                   />
                   <span className="mt-4 text-sm font-semibold text-white/90">
-                    選擇車輛照片
+                    {text("ai.photo.selectLabel")}
                   </span>
-                  <span className="mt-2 text-xs leading-5 text-white/45">
-                    JPG、PNG、WEBP・最大 6MB
-                    <br />
-                    建議使用日間、車身完整入鏡的照片
+                  <span className="mt-2 whitespace-pre-line text-xs leading-5 text-white/45">
+                    {text("ai.photo.formatHint")}
                   </span>
                 </label>
               ) : (
                 <div className="relative overflow-hidden border border-white/20 bg-[#0d0e0b]">
                   <img
                     src={sourcePreview}
-                    alt="待生成預覽的上傳愛車照片"
+                    alt={text("ai.photo.uploadedAlt")}
                     className="h-64 w-full object-cover"
                   />
                   <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-black/76 px-3 py-2 backdrop-blur-sm">
@@ -529,7 +537,7 @@ export default function WrapColorPreview() {
                       onClick={clearPhoto}
                       disabled={isGenerating}
                       className="flex h-7 w-7 shrink-0 items-center justify-center border border-white/20 text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44]"
-                      aria-label="移除照片"
+                      aria-label={text("ai.photo.removeAriaLabel")}
                     >
                       <X size={14} />
                     </button>
@@ -551,19 +559,19 @@ export default function WrapColorPreview() {
                 htmlFor="vehicle-model"
                 className="mb-3 block text-xs font-bold tracking-[0.12em] text-white/86"
               >
-                車款／車系（選填）
+                {text("ai.vehicle.label")}
               </label>
               <input
                 id="vehicle-model"
                 value={vehicleModel}
                 onChange={event => setVehicleModel(event.target.value)}
-                placeholder="例如：Porsche Taycan 4S、BMW M3 G80"
+                placeholder={text("ai.vehicle.placeholder")}
                 maxLength={120}
                 disabled={isGenerating}
                 className="h-12 w-full border border-white/20 bg-[#0d0e0b] px-4 text-sm text-white outline-none transition-colors placeholder:text-white/25 focus:border-[#a9ff44] disabled:opacity-60"
               />
               <p className="mt-2 text-xs leading-5 text-white/40">
-                只用於會員紀錄與 CRM 搜尋，不會改變 AI 產圖內容。
+                {text("ai.vehicle.help")}
               </p>
             </div>
 
@@ -573,15 +581,20 @@ export default function WrapColorPreview() {
                   htmlFor="wrap-color-code"
                   className="text-xs font-bold tracking-[0.12em] text-white/86"
                 >
-                  02／型錄色卡色號
+                  {text("ai.catalog.stepLabel")}
                 </label>
                 <span className="text-[0.6rem] font-semibold tracking-[0.13em] text-[#a9ff44]">
-                  {WRAP_COLOR_CATALOG.length} COLORS / KSG TPU
+                  {WRAP_COLOR_CATALOG.length} {text("ai.catalog.countSuffix")}{" "}
+                  <img
+                    src={image("global.ksgLogo")}
+                    alt={text("global.ksgLogoAlt")}
+                    className="ml-1 inline-block h-5 max-w-16 object-contain"
+                  />
                 </span>
               </div>
               <div className="grid gap-3 sm:grid-cols-[0.82fr_1.18fr]">
                 <label className="sr-only" htmlFor="wrap-color-category">
-                  選擇色系
+                  {text("ai.catalog.categorySelectLabel")}
                 </label>
                 <select
                   id="wrap-color-category"
@@ -602,12 +615,12 @@ export default function WrapColorPreview() {
                           color => color.category === category
                         ).length
                       }{" "}
-                      色
+                      {text("ai.catalog.colorCountSuffix")}
                     </option>
                   ))}
                 </select>
                 <label className="sr-only" htmlFor="wrap-color-code">
-                  選擇型錄色號
+                  {text("ai.catalog.colorSelectLabel")}
                 </label>
                 <select
                   id="wrap-color-code"
@@ -632,7 +645,7 @@ export default function WrapColorPreview() {
                   {selectedMaterialCardUrl ? (
                     <img
                       src={selectedMaterialCardUrl}
-                      alt={`${selectedColor.code} 實體材質色卡預覽`}
+                      alt={`${selectedColor.code} ${text("ai.catalog.swatchAltSuffix")}`}
                       className="h-20 w-28 shrink-0 border border-white/20 object-cover shadow-[0_0_24px_rgba(169,255,68,0.08)]"
                     />
                   ) : (
@@ -661,16 +674,14 @@ export default function WrapColorPreview() {
                 </div>
               )}
               <p className="mt-3 text-xs leading-5 text-white/43">
-                型錄已依紅色系、橙色系、黃色系等 15
-                個色系分組。選定色號後，系統會將 PDF 的實際材質色卡一併帶入
-                AI，讓預覽更貼近膜料色相與金屬／珠光質感。
+                {text("ai.catalog.description")}
               </p>
               <div className="mt-3 flex border border-white/15 bg-[#0d0e0b] focus-within:border-[#a9ff44]">
                 <label
                   htmlFor="custom-color-id"
                   className="flex items-center border-r border-white/15 px-4 text-[0.6rem] font-semibold tracking-[0.12em] text-white/46"
                 >
-                  自訂
+                  {text("ai.catalog.customLabel")}
                 </label>
                 <input
                   id="custom-color-id"
@@ -679,7 +690,7 @@ export default function WrapColorPreview() {
                     setCustomColorId(event.target.value);
                     resetGeneratedPreview();
                   }}
-                  placeholder="非型錄色號可在此輸入"
+                  placeholder={text("ai.catalog.customPlaceholder")}
                   maxLength={48}
                   disabled={isGenerating}
                   className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm tracking-[0.06em] text-white outline-none placeholder:text-white/25"
@@ -691,10 +702,10 @@ export default function WrapColorPreview() {
               <div className="mb-3 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold tracking-[0.12em] text-white/86">
-                    03／局部包膜客製化
+                    {text("ai.partial.stepLabel")}
                   </p>
                   <p className="mt-2 text-xs leading-5 text-white/45">
-                    可複選零件；每項僅提供黑化或碳纖維兩種效果。
+                    {text("ai.partial.description")}
                   </p>
                 </div>
                 <Layers3
@@ -729,7 +740,7 @@ export default function WrapColorPreview() {
                       <div
                         className="grid grid-cols-2 gap-2"
                         role="group"
-                        aria-label={`${part.label} 材質選擇`}
+                        aria-label={`${part.label} ${text("ai.partial.finishGroupSuffix")}`}
                       >
                         {(
                           Object.entries(PARTIAL_WRAP_FINISHES) as Array<
@@ -760,7 +771,7 @@ export default function WrapColorPreview() {
               {partialWrapCustomizations.length > 0 && (
                 <p className="mt-3 flex gap-2 text-xs leading-5 text-white/58">
                   <Check size={15} className="mt-0.5 shrink-0 text-[#a9ff44]" />
-                  已套用：
+                  {text("ai.partial.appliedPrefix")}
                   {partialWrapCustomizations
                     .map(
                       item =>
@@ -796,7 +807,7 @@ export default function WrapColorPreview() {
                 </>
               ) : (
                 <>
-                  <WandSparkles size={16} /> 生成車色預覽
+                  <WandSparkles size={16} /> {text("ai.generateButton.default")}
                 </>
               )}
             </button>
@@ -820,15 +831,15 @@ export default function WrapColorPreview() {
                       key={generatedPreview}
                       beforeUrl={sourcePreview}
                       afterUrl={generatedPreview}
-                      beforeLabel="A ORIGINAL"
-                      afterLabel="B AI PREVIEW"
-                      alt="原始車照與 AI 車色預覽比較"
+                      beforeLabel={text("ai.output.beforeLabel")}
+                      afterLabel={text("ai.output.afterLabel")}
+                      alt={text("ai.output.compareAlt")}
                       className="absolute inset-0"
                     />
                   ) : (
                     <img
                       src={generatedPreview}
-                      alt={`以 ${generatedColorId} 為目標色號的 AI 車色包膜概念預覽`}
+                      alt={`${text("ai.output.imageAltPrefix")} ${generatedColorId} 的 AI 車色包膜概念預覽`}
                       className="absolute inset-0 h-full w-full object-contain"
                     />
                   )}
@@ -836,25 +847,132 @@ export default function WrapColorPreview() {
                 <div className="border-t border-white/15 bg-[#11120f] p-5 sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-[0.62rem] font-bold tracking-[0.18em] text-[#a9ff44]">CONCEPT PREVIEW GENERATED</p>
-                      <p className="mt-2 text-sm text-white/80">目標色號：{generatedColorId}</p>
-                      {generatedAspectRatio && <p className="mt-1 text-xs text-white/55">輸出比例：{generatedAspectRatio}{generatedOutputSize ? ` · ${generatedOutputSize}` : ""}</p>}
-                      {generatedPartialWrapCustomizations.length > 0 && <p className="mt-2 text-xs leading-5 text-white/58">局部包膜：{generatedPartialWrapCustomizations.map(item => `${PARTIAL_WRAP_PARTS[item.part].label}・${PARTIAL_WRAP_FINISHES[item.finish].label}`).join("、")}</p>}
-                      {isAuthenticated && historyId && <p className="mt-2 text-[0.65rem] text-white/45">{historyIsSaved ? "已保存 30 天" : "目前暫存 3 天，按下「儲存圖片」可延長至 30 天"}</p>}
+                      <p className="text-[0.62rem] font-bold tracking-[0.18em] text-[#a9ff44]">
+                        {text("ai.output.generatedLabel")}
+                      </p>
+                      <p className="mt-2 text-sm text-white/80">
+                        {text("ai.output.targetLabel")}
+                        {generatedColorId}
+                      </p>
+                      {generatedAspectRatio && (
+                        <p className="mt-1 text-xs text-white/55">
+                          {text("ai.output.ratioLabel")}
+                          {generatedAspectRatio}
+                          {generatedOutputSize
+                            ? ` · ${generatedOutputSize}`
+                            : ""}
+                        </p>
+                      )}
+                      {generatedPartialWrapCustomizations.length > 0 && (
+                        <p className="mt-2 text-xs leading-5 text-white/58">
+                          {text("ai.output.partialLabel")}
+                          {generatedPartialWrapCustomizations
+                            .map(
+                              item =>
+                                `${PARTIAL_WRAP_PARTS[item.part].label}・${PARTIAL_WRAP_FINISHES[item.finish].label}`
+                            )
+                            .join("、")}
+                        </p>
+                      )}
+                      {isAuthenticated && historyId && (
+                        <p className="mt-2 text-[0.65rem] text-white/45">
+                          {historyIsSaved
+                            ? text("ai.toast.savedStatus")
+                            : text("ai.toast.temporaryStatus")}
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button type="button" onClick={() => setCompareMode(current => !current)} disabled={!sourcePreview || isGenerating} className={`flex items-center gap-2 border px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${compareMode ? "border-[#a9ff44] bg-[#a9ff44]/15 text-[#a9ff44]" : "border-white/35 bg-black/55 text-white hover:border-[#a9ff44] hover:text-[#a9ff44]"}`}>A｜B 比較</button>
-                      {isAuthenticated && historyId && <button type="button" onClick={() => void handleSavePreview()} disabled={historyIsSaved || historySaving || isGenerating} className={`flex items-center gap-2 px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${historyIsSaved ? "border border-[#a9ff44]/60 bg-[#a9ff44]/15 text-[#a9ff44]" : "bg-[#a9ff44] text-[#10130a] hover:bg-white"}`}>{historyIsSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}{historySaving ? "保存中…" : historyIsSaved ? "已保存 30 天" : "儲存圖片"}</button>}
-                      <button type="button" onClick={handleDownloadPreview} disabled={isGenerating} className="flex items-center gap-2 border border-white/35 bg-black/55 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"><Download size={14} />下載圖片</button>
-                      <button type="button" onClick={() => generatePreview.mutate(getGenerationInput())} disabled={isGenerating} className="flex items-center gap-2 border border-white/25 bg-black/45 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"><RefreshCcw size={14} />重新生成</button>
+                      <button
+                        type="button"
+                        onClick={() => setCompareMode(current => !current)}
+                        disabled={!sourcePreview || isGenerating}
+                        className={`flex items-center gap-2 border px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${compareMode ? "border-[#a9ff44] bg-[#a9ff44]/15 text-[#a9ff44]" : "border-white/35 bg-black/55 text-white hover:border-[#a9ff44] hover:text-[#a9ff44]"}`}
+                      >
+                        {text("ai.action.compare")}
+                      </button>
+                      {isAuthenticated && historyId && (
+                        <button
+                          type="button"
+                          onClick={() => void handleSavePreview()}
+                          disabled={
+                            historyIsSaved || historySaving || isGenerating
+                          }
+                          className={`flex items-center gap-2 px-3 py-2 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${historyIsSaved ? "border border-[#a9ff44]/60 bg-[#a9ff44]/15 text-[#a9ff44]" : "bg-[#a9ff44] text-[#10130a] hover:bg-white"}`}
+                        >
+                          {historyIsSaved ? (
+                            <BookmarkCheck size={14} />
+                          ) : (
+                            <Bookmark size={14} />
+                          )}
+                          {historySaving
+                            ? text("ai.saveButton.saving")
+                            : historyIsSaved
+                              ? text("ai.saveButton.saved")
+                              : text("ai.saveButton.default")}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleDownloadPreview}
+                        disabled={isGenerating}
+                        className="flex items-center gap-2 border border-white/35 bg-black/55 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"
+                      >
+                        <Download size={14} />
+                        {text("ai.action.download")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          generatePreview.mutate(getGenerationInput())
+                        }
+                        disabled={isGenerating}
+                        className="flex items-center gap-2 border border-white/25 bg-black/45 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-[#a9ff44] hover:text-[#a9ff44] disabled:opacity-60"
+                      >
+                        <RefreshCcw size={14} />
+                        {text("ai.action.regenerate")}
+                      </button>
                     </div>
                   </div>
                   <div className="mt-4 grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-[minmax(0,1fr)_minmax(200px,0.55fr)]">
                     <div className="space-y-2">
-                      {generatedColorMetrics && <p className={`border-l-2 px-3 py-2 text-xs leading-5 ${generatedColorMetrics.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/35 text-white/78"}`}>{generatedColorMetrics.message}</p>}
-                      {generatedColorReview && <p className={`border-l-2 px-3 py-2 text-xs leading-5 ${generatedColorReview.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/35 text-white/78"}`}>{generatedColorReview.message}</p>}
+                      {generatedColorMetrics && (
+                        <p
+                          className={`border-l-2 px-3 py-2 text-xs leading-5 ${generatedColorMetrics.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/35 text-white/78"}`}
+                        >
+                          {generatedColorMetrics.message}
+                        </p>
+                      )}
+                      {generatedColorReview && (
+                        <p
+                          className={`border-l-2 px-3 py-2 text-xs leading-5 ${generatedColorReview.status === "mismatch" ? "border-amber-300 bg-amber-300/12 text-amber-50" : "border-[#a9ff44] bg-black/35 text-white/78"}`}
+                        >
+                          {generatedColorReview.message}
+                        </p>
+                      )}
                     </div>
-                    {generatedMaterialReferenceUrl && <div className="border border-white/15 bg-black/25 p-3"><div className="flex items-center gap-3"><img src={generatedMaterialReferenceUrl} alt={`${generatedColorId} 的 PDF 原始材質色卡`} className="h-20 w-28 shrink-0 object-cover" /><div><p className="text-[0.55rem] font-bold tracking-[0.12em] text-[#a9ff44]">PDF MATERIAL CARD</p><p className="mt-1 text-[0.68rem] leading-5 text-white/72">實體色卡參考已啟用</p></div></div><p className="mt-3 border-t border-white/10 pt-3 text-xs leading-5 text-white/55">請在圖片外側對照色卡與車身主色；如明顯偏離，可重新生成。</p></div>}
+                    {generatedMaterialReferenceUrl && (
+                      <div className="border border-white/15 bg-black/25 p-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={generatedMaterialReferenceUrl}
+                            alt={`${generatedColorId} ${text("ai.output.materialCardLabel")}`}
+                            className="h-20 w-28 shrink-0 object-cover"
+                          />
+                          <div>
+                            <p className="text-[0.55rem] font-bold tracking-[0.12em] text-[#a9ff44]">
+                              {text("ai.output.materialCardLabel")}
+                            </p>
+                            <p className="mt-1 text-[0.68rem] leading-5 text-white/72">
+                              {text("ai.output.materialCardEnabled")}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="mt-3 border-t border-white/10 pt-3 text-xs leading-5 text-white/55">
+                          {text("ai.output.materialCardHelp")}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -868,11 +986,10 @@ export default function WrapColorPreview() {
                   <span className="absolute inset-2 border border-white/10" />
                 </div>
                 <p className="font-display mt-7 text-3xl tracking-[0.04em] text-white">
-                  PROCESSING SURFACE
+                  {text("ai.processing.title")}
                 </p>
                 <p className="mt-3 max-w-sm text-sm leading-6 text-white/53">
-                  AI
-                  正在保留你的車型與拍攝角度，並重建指定型錄色號的包膜材質與車漆反光。
+                  {text("ai.processing.description")}
                 </p>
                 <div className="mt-7 h-px w-full max-w-xs overflow-hidden bg-white/12">
                   <span className="block h-full w-1/2 bg-[#a9ff44] motion-safe:animate-[scan_1.4s_ease-in-out_infinite]" />
@@ -885,19 +1002,19 @@ export default function WrapColorPreview() {
                     <WandSparkles size={18} strokeWidth={1.4} />
                   </span>
                   <span className="text-[0.58rem] font-semibold tracking-[0.18em] text-white/38">
-                    OUTPUT PREVIEW
+                    {text("ai.output.placeholderLabel")}
                   </span>
                 </div>
                 <div>
                   <p className="font-display text-[clamp(2.5rem,5vw,5rem)] font-medium leading-[0.82] tracking-[-0.04em] text-white/16">
-                    YOUR
+                    {text("ai.output.placeholderTitleLine1")}
                     <br />
-                    NEXT
+                    {text("ai.output.placeholderTitleLine2")}
                     <br />
-                    FINISH.
+                    {text("ai.output.placeholderTitleLine3")}
                   </p>
                   <p className="mt-6 max-w-sm border-l border-[#a9ff44] pl-4 text-sm leading-6 text-white/58">
-                    上傳照片並從型錄選擇色號後，這裡會顯示專屬於你車輛的改色包膜概念預覽。
+                    {text("ai.output.placeholderDescription")}
                   </p>
                 </div>
               </div>
@@ -907,16 +1024,13 @@ export default function WrapColorPreview() {
 
         {generatedPreview && (
           <p className="mt-4 border-l-2 border-[#a9ff44] bg-[#a9ff44]/8 px-3 py-2 text-xs leading-5 text-white/58">
-            按下「儲存圖片」鈕將保存 30 天，未儲存的圖片只保留 3 天
+            {text("ai.storageNotice")}
           </p>
         )}
 
         <div className="mt-5 flex gap-3 border-t border-white/10 pt-5 text-xs leading-5 text-white/43">
           <Check size={15} className="mt-0.5 shrink-0 text-[#a9ff44]" />
-          <p>
-            此功能提供 AI
-            視覺概念預覽，型錄色號與螢幕呈現會受影像光線影響；實際施工前，仍應以實體包膜色樣與店內確認結果為準。
-          </p>
+          <p>{text("ai.disclaimer")}</p>
         </div>
       </div>
     </section>

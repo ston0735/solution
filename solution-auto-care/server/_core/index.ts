@@ -9,6 +9,7 @@ import { registerMemberPreviewRoutes } from "../memberPreviewRoutes";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { registerCmsRoutes } from "../cms/routes";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -37,12 +38,13 @@ export function createBaseApp(): Express {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerMemberPreviewRoutes(app);
+  registerCmsRoutes(app);
   app.use(
     "/api/trpc",
     createExpressMiddleware({
       router: appRouter,
       createContext,
-    }),
+    })
   );
   return app;
 }
