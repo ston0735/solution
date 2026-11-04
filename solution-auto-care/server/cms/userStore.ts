@@ -13,6 +13,7 @@ import {
   CmsValidationError,
 } from "./errors";
 import {
+  classifyCmsBlobFailure,
   withCmsBlobToken,
   type CmsBlobClient,
   type CmsBlobGetResult,
@@ -65,6 +66,24 @@ const SCRYPT_N = 16_384;
 const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 const SCRYPT_MAXMEM = 32 * 1024 * 1024;
+
+function logCmsAuthBlobFailure(
+  operation: "account_directory_read" | "account_directory_write",
+  error: unknown
+): void {
+  const diagnostic = classifyCmsBlobFailure(error);
+  console.error(
+    JSON.stringify({
+      event: "cms_auth_blob_failure",
+      operation,
+      category: diagnostic.category,
+      ...(diagnostic.constructorName
+        ? { errorType: diagnostic.constructorName }
+        : {}),
+      ...(diagnostic.status === undefined ? {} : { status: diagnostic.status }),
+    })
+  );
+}
 
 export type CmsAuthRole = "owner" | "editor";
 
@@ -854,7 +873,8 @@ async function readSnapshot(
   let result: CmsBlobGetResult | null;
   try {
     result = await client.get(pathname, { access: "private", useCache: false });
-  } catch {
+  } catch (error) {
+    logCmsAuthBlobFailure("account_directory_read", error);
     throw new CmsStorageError();
   }
   if (!result || result.statusCode === 404) {
@@ -981,6 +1001,7 @@ async function writeSnapshot(
     await client.put(pathname, JSON.stringify(document), options);
   } catch (error) {
     if (isBlobConflict(error)) throw new CmsConflictError();
+    logCmsAuthBlobFailure("account_directory_write", error);
     throw new CmsStorageError();
   }
 }

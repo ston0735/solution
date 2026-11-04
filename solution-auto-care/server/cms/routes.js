@@ -1055,6 +1055,18 @@ var SCRYPT_N = 16384;
 var SCRYPT_R = 8;
 var SCRYPT_P = 1;
 var SCRYPT_MAXMEM = 32 * 1024 * 1024;
+function logCmsAuthBlobFailure(operation, error) {
+  const diagnostic = classifyCmsBlobFailure(error);
+  console.error(
+    JSON.stringify({
+      event: "cms_auth_blob_failure",
+      operation,
+      category: diagnostic.category,
+      ...diagnostic.constructorName ? { errorType: diagnostic.constructorName } : {},
+      ...diagnostic.status === void 0 ? {} : { status: diagnostic.status }
+    })
+  );
+}
 var ipThrottle = /* @__PURE__ */ new Map();
 var defaultBlobClient2 = {
   get: async (pathname, options) => await blobGet2(
@@ -1516,7 +1528,8 @@ async function readSnapshot(client, pathname) {
   let result;
   try {
     result = await client.get(pathname, { access: "private", useCache: false });
-  } catch {
+  } catch (error) {
+    logCmsAuthBlobFailure("account_directory_read", error);
     throw new CmsStorageError();
   }
   if (!result || result.statusCode === 404) {
@@ -1619,6 +1632,7 @@ async function writeSnapshot(client, pathname, snapshot, document) {
     await client.put(pathname, JSON.stringify(document), options);
   } catch (error) {
     if (isBlobConflict2(error)) throw new CmsConflictError();
+    logCmsAuthBlobFailure("account_directory_write", error);
     throw new CmsStorageError();
   }
 }

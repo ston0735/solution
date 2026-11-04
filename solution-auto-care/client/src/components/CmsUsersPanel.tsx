@@ -46,6 +46,28 @@ function userLabel(user: CmsUserRecord) {
   return user.name?.trim() || user.username;
 }
 
+function googleEmailSaveError(value: unknown) {
+  if (!(value instanceof CmsApiError)) {
+    return "Google email 授權更新失敗；此次變更尚未保存，請保留欄位內容。";
+  }
+  if (value.status === 0) {
+    return "目前無法連線到 CMS；Google email 尚未保存，請保留欄位內容並檢查網路。";
+  }
+  if (value.status === 400 || value.status === 422) {
+    return `Google email 格式或資料未通過驗證（HTTP ${value.status}），尚未保存。請確認地址後再試。`;
+  }
+  if (value.status === 401 || value.status === 403) {
+    return `登入 session 或主權限檢查未通過（HTTP ${value.status}），Google email 尚未保存。`;
+  }
+  if (value.status === 503) {
+    return "CMS 私有儲存服務暫時無法寫入（HTTP 503）；Google email 尚未保存，請保留欄位內容。";
+  }
+  if (value.status >= 500) {
+    return `伺服器處理 Google email 授權時發生錯誤（HTTP ${value.status}）；尚未保存，請保留欄位內容。`;
+  }
+  return `Google email 授權更新失敗（HTTP ${value.status}）；尚未保存，請保留欄位內容。`;
+}
+
 export default function CmsUsersPanel() {
   const { user: currentUser, clearSession } = useCmsAuth();
   const [users, setUsers] = useState<CmsUserRecord[]>([]);
@@ -283,7 +305,7 @@ export default function CmsUsersPanel() {
         setError("帳戶資料已被更新，已重新載入最新 Google 授權狀態，請再試。 ");
         await loadUsers();
       } else {
-        setError("Google email 授權更新失敗，請稍後再試。 ");
+        setError(googleEmailSaveError(value));
       }
     } finally {
       setGoogleSavingId(null);
