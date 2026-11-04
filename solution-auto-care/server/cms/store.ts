@@ -38,12 +38,13 @@ type CmsBlobPutOptions = {
   allowOverwrite: boolean;
   contentType?: string;
   ifMatch?: string;
+  token?: string;
 };
 
 export interface CmsBlobClient {
   get(
     pathname: string,
-    options: { access: "private"; useCache: false }
+    options: { access: "private"; useCache: false; token?: string }
   ): Promise<CmsBlobGetResult | null>;
   put(
     pathname: string,
@@ -52,13 +53,56 @@ export interface CmsBlobClient {
   ): Promise<unknown>;
 }
 
+export function withCmsBlobToken<T extends object>(options: T) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  return token ? { ...options, token } : options;
+}
+
 const defaultBlobClient: CmsBlobClient = {
-  get: blobGet as unknown as CmsBlobClient["get"],
-  put: blobPut as unknown as CmsBlobClient["put"],
+  get: async (pathname, options) =>
+    (await blobGet(
+      pathname,
+      withCmsBlobToken(options)
+    )) as unknown as CmsBlobGetResult | null,
+  put: async (pathname, body, options) =>
+    blobPut(
+      pathname,
+      body as Parameters<typeof blobPut>[1],
+      withCmsBlobToken(options)
+    ),
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function safeDiagnosticString(value: unknown): string | undefined {
+  return typeof value === "string" && /^[A-Za-z0-9_.:-]{1,80}$/.test(value)
+    ? value
+    : undefined;
+}
+
+function logBlobFailure(operation: string, error: unknown): void {
+  const source = isRecord(error) ? error : {};
+  const status = source.status ?? source.statusCode;
+  console.error(
+    JSON.stringify({
+      event: "cms_blob_operation_failed",
+      operation,
+      name: safeDiagnosticString(source.name),
+      code: safeDiagnosticString(source.code),
+      status:
+        typeof status === "number" && Number.isInteger(status)
+          ? status
+          : undefined,
+      causeName: isRecord(source.cause)
+        ? safeDiagnosticString(source.cause.name)
+        : undefined,
+      causeCode: isRecord(source.cause)
+        ? safeDiagnosticString(source.cause.code)
+        : undefined,
+    })
+  );
 }
 
 function cloneContent(content: SiteContent): SiteContent {
@@ -165,7 +209,8 @@ export function createCmsStore(
           access: "private",
           useCache: false,
         });
-      } catch {
+      } catch (error) {
+        logBlobFailure("site_document_read", error);
         throw new CmsStorageError("CMS storage is unavailable.");
       }
 
@@ -210,6 +255,7 @@ export function createCmsStore(
         await client.put(CMS_DOCUMENT_PATH, JSON.stringify(document), options);
       } catch (error) {
         if (isBlobConflict(error)) throw new CmsConflictError();
+        logBlobFailure("site_document_write", error);
         throw new CmsStorageError("CMS storage is unavailable.");
       }
     },
@@ -223,6 +269,7 @@ export function createCmsStore(
         });
       } catch (error) {
         if (isBlobConflict(error)) throw new CmsConflictError();
+        logBlobFailure("site_media_write", error);
         throw new CmsStorageError("CMS storage is unavailable.");
       }
     },
@@ -234,7 +281,8 @@ export function createCmsStore(
           access: "private",
           useCache: false,
         });
-      } catch {
+      } catch (error) {
+        logBlobFailure("site_media_read", error);
         throw new CmsStorageError("CMS storage is unavailable.");
       }
       if (!result || result.statusCode === 404) return null;

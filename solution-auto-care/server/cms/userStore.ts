@@ -12,7 +12,11 @@ import {
   CmsStorageError,
   CmsValidationError,
 } from "./errors";
-import type { CmsBlobClient, CmsBlobGetResult } from "./store";
+import {
+  withCmsBlobToken,
+  type CmsBlobClient,
+  type CmsBlobGetResult,
+} from "./store";
 
 function deriveScrypt(
   password: string,
@@ -178,8 +182,17 @@ type CmsBootstrapLimitSnapshot = {
 const ipThrottle = new Map<string, IpThrottleState>();
 
 const defaultBlobClient: CmsAuthBlobClient = {
-  get: blobGet as unknown as CmsAuthBlobClient["get"],
-  put: blobPut as unknown as CmsAuthBlobClient["put"],
+  get: async (pathname, options) =>
+    (await blobGet(
+      pathname,
+      withCmsBlobToken(options)
+    )) as unknown as CmsBlobGetResult | null,
+  put: async (pathname, body, options) =>
+    blobPut(
+      pathname,
+      body as Parameters<typeof blobPut>[1],
+      withCmsBlobToken(options)
+    ),
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
