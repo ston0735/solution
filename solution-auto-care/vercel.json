@@ -30,11 +30,11 @@
   "rewrites": [
     {
       "source": "/api/trpc/wrapPreview.generate",
-      "destination": "/api/wrap-preview/generate"
+      "destination": "/api/wrap-preview?op=generate"
     },
     {
       "source": "/api/trpc/wrapPreview.health",
-      "destination": "/api/wrap-preview/health"
+      "destination": "/api/wrap-preview?op=health"
     },
     {
       "source": "/api/cms",

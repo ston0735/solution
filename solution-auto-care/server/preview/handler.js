@@ -1065,6 +1065,14 @@ function isKnownGuardError(error) {
 function createPreviewApp() {
   const app = express();
   app.use(express.json({ limit: "4mb" }));
+  const operations = /* @__PURE__ */ new Set(["generate", "health", "image", "storage-check"]);
+  app.use((req, _res, next) => {
+    const operation = typeof req.query.op === "string" ? req.query.op : "";
+    if (!operations.has(operation)) return next();
+    const queryIndex = req.url.indexOf("?");
+    req.url = `/${operation}${queryIndex === -1 ? "" : req.url.slice(queryIndex)}`;
+    return next();
+  });
   const healthPaths = ["/health", "/api/wrap-preview/health"];
   const generatePaths = ["/generate", "/api/wrap-preview/generate"];
   const imagePaths = ["/image", "/api/wrap-preview/image"];
@@ -1213,7 +1221,7 @@ function createPreviewApp() {
         generated.buffer,
         buffer
       ) : void 0;
-      const previewUrl = `/api/wrap-preview/image?u=${encodeURIComponent(
+      const previewUrl = `/api/wrap-preview?op=image&u=${encodeURIComponent(
         generated.url
       )}`;
       const previewResponse = {

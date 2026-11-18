@@ -1,4 +1,9 @@
-import express, { type Express, type Request, type Response } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import { z } from "zod";
 import {
   assertPantoneId,
@@ -185,6 +190,18 @@ export function createPreviewApp(): Express {
   // Vercel enforces its own request body ceiling in front of the function.
   app.use(express.json({ limit: "4mb" }));
 
+  const operations = new Set(["generate", "health", "image", "storage-check"]);
+  // Vercel only builds one route for `api/wrap-preview.ts`, so the operations
+  // are addressed with `?op=` exactly like the CMS entry does, and normalised
+  // here so the handlers can stay path based.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    const operation = typeof req.query.op === "string" ? req.query.op : "";
+    if (!operations.has(operation)) return next();
+    const queryIndex = req.url.indexOf("?");
+    req.url = `/${operation}${queryIndex === -1 ? "" : req.url.slice(queryIndex)}`;
+    return next();
+  });
+
   // Both path shapes are registered because Vercel may or may not strip the
   // function mount path before handing the request to Express.
   const healthPaths = ["/health", "/api/wrap-preview/health"];
@@ -366,8 +383,8 @@ export function createPreviewApp(): Express {
             buffer
           )
         : undefined;
-      const previewUrl = `/api/wrap-preview/image?u=${encodeURIComponent(
-        generated.url
+      const previewUrl = `/api/wrap-preview?op=image&u=${encodeURIComponent(
+        generated.url,
       )}`;
 
       const previewResponse: WrapPreviewResponse = {
