@@ -658,7 +658,7 @@ function isStoredBlobUrl(value) {
 }
 function requireToken() {
   const token = getBlobToken();
-  if (!token) throw new Error("PREVIEW_STORAGE_UNAVAILABLE");
+  if (!token) throw new Error("PREVIEW_LIMITER_UNAVAILABLE");
   return token;
 }
 function toMarker(entry) {

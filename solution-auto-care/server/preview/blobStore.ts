@@ -43,7 +43,9 @@ export function isStoredBlobUrl(value: string): boolean {
 
 function requireToken(): string {
   const token = getBlobToken();
-  if (!token) throw new Error("PREVIEW_STORAGE_UNAVAILABLE");
+  // Mapped by getWrapPreviewErrorMessage so visitors see the protective
+  // wording instead of an internal code, and no unpriced call is issued.
+  if (!token) throw new Error("PREVIEW_LIMITER_UNAVAILABLE");
   return token;
 }
 
