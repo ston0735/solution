@@ -384,7 +384,7 @@ export function createPreviewApp(): Express {
           )
         : undefined;
       const previewUrl = `/api/wrap-preview?op=image&u=${encodeURIComponent(
-        generated.url,
+        generated.url
       )}`;
 
       const previewResponse: WrapPreviewResponse = {

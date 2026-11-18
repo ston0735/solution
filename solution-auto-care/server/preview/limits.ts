@@ -17,9 +17,16 @@ import {
  * so usage is counted by listing markers and leases expire on a staleness
  * window instead of relying on a transaction.
  */
-const LEASE_STALENESS_MS = 120_000;
+/**
+ * Safety net only. A lease is released by writing a `.done.json` marker, so a
+ * slow Vercel Blob delete never keeps the slot busy; this window just covers a
+ * function that died before it could write anything.
+ */
+const LEASE_STALENESS_MS = 90_000;
+const LEASE_DONE_SUFFIX = ".done.json";
 
 export type PreviewUsageClaim = {
+  leasePath: string;
   leaseUrl: string;
   usageUrl?: string;
 };
@@ -113,22 +120,34 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function putMarker(prefix: string): Promise<string> {
+async function putMarker(pathname: string): Promise<string> {
   return putBlobFile(
-    `${prefix}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`,
+    pathname,
     JSON.stringify({ at: new Date().toISOString() }),
     "application/json"
   );
+}
+
+function newAttemptId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export async function claimGeneration(
   ipHash: string,
   options: { skipDailyLimit: boolean }
 ): Promise<PreviewUsageClaim> {
-  const leasePrefix = `${PREVIEW_BLOB_PREFIX}/lease/${ipHash}/`;
-  const leases = await listByPrefix(leasePrefix, 20).catch(() => []);
+  // Scoped by day so a busy address never has to list an ever-growing prefix.
+  const leasePrefix = `${PREVIEW_BLOB_PREFIX}/lease/${ipHash}/${todayKey()}/`;
+  const markers = await listByPrefix(leasePrefix, 300);
+  const released = new Set(
+    markers
+      .filter(marker => marker.pathname.endsWith(LEASE_DONE_SUFFIX))
+      .map(marker => marker.pathname.slice(0, -LEASE_DONE_SUFFIX.length))
+  );
   const freshCutoff = Date.now() - LEASE_STALENESS_MS;
-  const active = leases.filter(marker => {
+  const active = markers.filter(marker => {
+    if (marker.pathname.endsWith(LEASE_DONE_SUFFIX)) return false;
+    if (released.has(marker.pathname)) return false;
     const uploadedAt = Date.parse(marker.uploadedAt);
     return Number.isFinite(uploadedAt) && uploadedAt > freshCutoff;
   });
@@ -139,22 +158,36 @@ export async function claimGeneration(
   let usageUrl: string | undefined;
   if (!options.skipDailyLimit) {
     const usagePrefix = `${PREVIEW_BLOB_PREFIX}/usage/${ipHash}/${todayKey()}/`;
-    const usage = await listByPrefix(usagePrefix, 50).catch(() => []);
+    const usage = await listByPrefix(usagePrefix, 50);
     if (usage.length >= PREVIEW_ENV.dailyGenerationsPerIp) {
       throw new Error("PREVIEW_DAILY_LIMIT");
     }
-    usageUrl = await putMarker(usagePrefix).catch(() => undefined);
+    usageUrl = await putMarker(`${usagePrefix}${newAttemptId()}.json`).catch(
+      () => undefined
+    );
   }
 
-  const leaseUrl = await putMarker(leasePrefix);
-  return { leaseUrl, usageUrl };
+  const leasePath = `${leasePrefix}${newAttemptId()}.json`;
+  const leaseUrl = await putMarker(leasePath);
+  return { leasePath, leaseUrl, usageUrl };
 }
 
 export async function releaseGeneration(
   claim: PreviewUsageClaim,
   completed: boolean
 ): Promise<void> {
+  // The done marker is what actually frees the slot: Vercel Blob listing can
+  // keep reporting a deleted object for a short while, which would otherwise
+  // make a finished visitor appear to still be generating.
+  const donePath = `${claim.leasePath}${LEASE_DONE_SUFFIX}`;
+  try {
+    await putMarker(donePath);
+  } catch (error) {
+    console.error("[WrapPreview] lease release marker failed", error);
+  }
   await deleteByUrl(claim.leaseUrl);
+  const doneUrl = claim.leaseUrl.replace(/\.json$/, LEASE_DONE_SUFFIX);
+  if (doneUrl !== claim.leaseUrl) await deleteByUrl(doneUrl);
   if (!completed && claim.usageUrl) {
     // A failed generation must not consume the visitor's daily allowance, so
     // the exact usage marker for this attempt is removed again.
