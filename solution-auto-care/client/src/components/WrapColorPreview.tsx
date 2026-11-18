@@ -43,11 +43,62 @@ import {
 import { toast } from "sonner";
 
 const MAX_FILE_BYTES = 6 * 1024 * 1024;
+/**
+ * The preview API runs as a serverless function, which caps the request body.
+ * Photos are therefore normalised in the browser: the exact source ratio is
+ * kept so the server still reports the same aspect ratio, while the encoded
+ * payload stays far below the upload ceiling.
+ */
+const UPLOAD_LONG_EDGE = 1536;
+const UPLOAD_QUALITY = 0.9;
 
 type ImageDimensions = {
   width: number;
   height: number;
 };
+
+function getGreatestCommonDivisor(a: number, b: number): number {
+  return b === 0 ? a : getGreatestCommonDivisor(b, a % b);
+}
+
+export function getUploadDimensions({
+  width,
+  height,
+}: ImageDimensions): ImageDimensions {
+  const divisor = getGreatestCommonDivisor(width, height) || 1;
+  const ratioWidth = Math.max(1, Math.round(width / divisor));
+  const ratioHeight = Math.max(1, Math.round(height / divisor));
+  const scale = Math.max(
+    1,
+    Math.floor(UPLOAD_LONG_EDGE / Math.max(ratioWidth, ratioHeight))
+  );
+  return { width: ratioWidth * scale, height: ratioHeight * scale };
+}
+
+async function imageToUploadBase64(
+  image: HTMLImageElement,
+  dimensions: ImageDimensions
+): Promise<string> {
+  const canvas = document.createElement("canvas");
+  canvas.width = dimensions.width;
+  canvas.height = dimensions.height;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("canvas unavailable");
+  context.drawImage(image, 0, 0, dimensions.width, dimensions.height);
+  const blob = await new Promise<Blob | null>(resolve =>
+    canvas.toBlob(resolve, "image/jpeg", UPLOAD_QUALITY)
+  );
+  if (!blob) throw new Error("encode unavailable");
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("encode read failed"));
+    reader.readAsDataURL(blob);
+  });
+  const separatorIndex = dataUrl.indexOf(",");
+  if (separatorIndex === -1) throw new Error("encode format failed");
+  return dataUrl.slice(separatorIndex + 1);
+}
 
 function formatColorLabel(color: WrapColor) {
   const name = color.nameZh || color.name;
@@ -366,15 +417,21 @@ export default function WrapColorPreview() {
         return;
       }
       setSourcePreview(dataUrl);
-      setImageBase64(dataUrl.slice(separatorIndex + 1));
+      setImageBase64("");
       setFileName(file.name);
       void loadImage(dataUrl, text("ai.error.fileRead"))
-        .then(image =>
-          setSourceDimensions({
+        .then(async image => {
+          const source = {
             width: image.naturalWidth,
             height: image.naturalHeight,
-          })
-        )
+          };
+          setSourceDimensions(source);
+          // The uploaded payload is the normalised JPEG, while the original
+          // data URL remains for the on-page preview.
+          setImageBase64(
+            await imageToUploadBase64(image, getUploadDimensions(source))
+          );
+        })
         .catch(() => setInputError(text("ai.error.dimensions")));
     };
     reader.readAsDataURL(file);
